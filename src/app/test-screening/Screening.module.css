@@ -1,0 +1,244 @@
+.screenContainer {
+    max-width: 800px;
+    margin: 0 auto;
+    padding-bottom: 4rem;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #a5b4fc 0%, #f472b6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Progress Bar */
+.progressContainer {
+    position: sticky;
+    top: 70px;
+    /* Below Navbar */
+    z-index: 50;
+    background: rgba(15, 23, 42, 0.95);
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+}
+
+.track {
+    width: 100%;
+    height: 8px;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    transition: width 0.4s ease;
+}
+
+.progressText {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+/* Question Cards */
+.questionCard {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.questionCard:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.questionText {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.questionIndex {
+    color: var(--text-muted);
+    font-family: monospace;
+    background: var(--surface);
+    padding: 0.2rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    height: fit-content;
+}
+
+/* Options Grid */
+.optionsGrid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1rem;
+}
+
+@media (min-width: 640px) {
+    .optionsGrid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.optionBtn {
+    background: rgba(30, 41, 59, 0.5);
+    /* Slate 800 transparent */
+    border: 2px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--text-muted);
+    position: relative;
+    min-height: 100px;
+}
+
+.optionBtn:hover {
+    background: var(--surface);
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.optionValue {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.optionLabel {
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+/* Active State - Green for ALL as requested */
+.optionBtnActive {
+    background: rgba(22, 163, 74, 0.1);
+    /* Green 600 with opacity */
+    border-color: var(--success);
+    color: white;
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+}
+
+.optionBtnActive .optionValue {
+    color: var(--success);
+}
+
+.checkIcon {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: var(--success);
+    color: black;
+    border-radius: 50%;
+    padding: 0.15rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Actions */
+.actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 3rem;
+}
+
+.submitBtn {
+    background: linear-gradient(135deg, var(--success), #16a34a);
+    border: none;
+    padding: 1rem 3rem;
+    border-radius: 3rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4);
+    transition: all 0.3s ease;
+}
+
+.submitBtn:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(22, 163, 74, 0.5);
+}
+
+.submitBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+
+/* Scale Selection Cards */
+.cardGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.scaleCard {
+    background: var(--glass-bg);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    padding: 2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.scaleCard:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-lg);
+}
+
+.scaleCard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.scaleCard:hover::before {
+    opacity: 1;
+}

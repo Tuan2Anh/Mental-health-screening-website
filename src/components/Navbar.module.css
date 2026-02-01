@@ -1,0 +1,87 @@
+.navbar {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 1rem 0;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.menu {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.link:hover {
+    color: var(--primary-color);
+}
+
+.auth {
+    display: flex;
+    gap: 1rem;
+    margin-left: 1rem;
+}
+
+.toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .toggle {
+        display: block;
+    }
+
+    .menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        flex-direction: column;
+        padding: 1rem;
+        gap: 1rem;
+        display: none;
+        /* Hidden by default on mobile */
+    }
+
+    .menu.open {
+        display: flex;
+        /* Shown when open */
+    }
+
+    .auth {
+        flex-direction: column;
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .auth a {
+        width: 100%;
+    }
+}

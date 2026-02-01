@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  user_id       Int           @id @default(autoincrement())
+  full_name     String
+  email         String        @unique
+  password      String
+  role          String        // user, expert, admin
+  created_at    DateTime      @default(now())
+  
+  testResults   TestResult[]
+  appointmentsAsUser   Appointment[] @relation("UserAppointments")
+  appointmentsAsExpert Appointment[] @relation("ExpertAppointments")
+}
+
+model PsychoScale {
+  scale_id      Int           @id @default(autoincrement())
+  scale_name    String
+  description   String?       @db.Text
+  
+  questions     Question[]
+  testResults   TestResult[]
+}
+
+model Question {
+  question_id   Int           @id @default(autoincrement())
+  scale_id      Int
+  content       String        @db.Text
+  score_min     Int
+  score_max     Int
+  
+  scale         PsychoScale   @relation(fields: [scale_id], references: [scale_id])
+  answers       Answer[]
+}
+
+model TestResult {
+  result_id     Int           @id @default(autoincrement())
+  user_id       Int
+  scale_id      Int
+  total_score   Int
+  risk_level    String?
+  created_at    DateTime      @default(now())
+  
+  user          User          @relation(fields: [user_id], references: [user_id])
+  scale         PsychoScale   @relation(fields: [scale_id], references: [scale_id])
+  answers       Answer[]
+}
+
+model Answer {
+  answer_id     Int           @id @default(autoincrement())
+  result_id     Int
+  question_id   Int
+  selected_score Int
+  
+  result        TestResult    @relation(fields: [result_id], references: [result_id])
+  question      Question      @relation(fields: [question_id], references: [question_id])
+}
+
+model Appointment {
+  appointment_id Int          @id @default(autoincrement())
+  user_id        Int
+  expert_id      Int
+  appointment_time DateTime
+  type           String       // online, offline
+  status         String       // pending, confirmed, completed, cancelled
+  
+  user           User         @relation("UserAppointments", fields: [user_id], references: [user_id])
+  expert         User         @relation("ExpertAppointments", fields: [expert_id], references: [user_id])
+}
