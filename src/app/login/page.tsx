@@ -67,7 +67,7 @@ export default function LoginPage() {
                                 placeholder="name@example.com"
                                 value={formData.email}
                                 onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'white' }}
+                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
                             />
                         </div>
                     </div>
@@ -82,7 +82,7 @@ export default function LoginPage() {
                                 placeholder="••••••••"
                                 value={formData.password}
                                 onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'white' }}
+                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
                             />
                         </div>
                     </div>

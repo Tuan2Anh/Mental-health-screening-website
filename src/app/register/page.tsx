@@ -73,7 +73,7 @@ export default function RegisterPage() {
                                 placeholder="Nguyễn Văn A"
                                 value={formData.full_name}
                                 onChange={e => setFormData({ ...formData, full_name: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'white' }}
+                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
                             />
                         </div>
                     </div>
@@ -88,7 +88,7 @@ export default function RegisterPage() {
                                 placeholder="name@example.com"
                                 value={formData.email}
                                 onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'white' }}
+                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
                             />
                         </div>
                     </div>
@@ -103,7 +103,7 @@ export default function RegisterPage() {
                                 placeholder="••••••••"
                                 value={formData.password}
                                 onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'white' }}
+                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
                             />
                         </div>
                     </div>
@@ -118,7 +118,7 @@ export default function RegisterPage() {
                                 placeholder="••••••••"
                                 value={formData.confirmPassword}
                                 onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'white' }}
+                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
                             />
                         </div>
                     </div>

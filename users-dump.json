@@ -1,0 +1,32 @@
+[
+  {
+    "user_id": 1,
+    "full_name": "Administrator",
+    "email": "admin@psychohealth.com",
+    "password": "hashed_password_here",
+    "role": "admin",
+    "avatar": null,
+    "specialty": null,
+    "created_at": "2026-03-10T11:13:18.390Z"
+  },
+  {
+    "user_id": 2,
+    "full_name": "Bác sĩ Minh",
+    "email": "dr.minh@psychohealth.com",
+    "password": "$2b$10$g/g.uZmRqJ3dYBvYmoRgBeQSY05xwJtoL5LVDyk4KsWfG6ePo0mGO",
+    "role": "expert",
+    "avatar": "https://i.pravatar.cc/150?u=a042581f4e29026024d",
+    "specialty": "Tâm lý học lâm sàng",
+    "created_at": "2026-03-10T11:13:18.397Z"
+  },
+  {
+    "user_id": 3,
+    "full_name": "Nguyễn Tuấn Anh",
+    "email": "abc@gmail.com",
+    "password": "$2b$10$k5/fbL5W.WinFxQFLIfAGubv/E0q9goffabMSonDUlYL3oAqlgGYC",
+    "role": "user",
+    "avatar": null,
+    "specialty": null,
+    "created_at": "2026-03-10T11:21:45.963Z"
+  }
+]

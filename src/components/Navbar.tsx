@@ -1,13 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { Brain, User, Calendar, Menu, X } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Brain, User, Calendar, Menu, X, Bell } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
-    const [user, setUser] = useState<{ name: string, email: string } | null>(null);
+    const [user, setUser] = useState<{ name: string, email: string, role?: string } | null>(null);
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetch('/api/auth/me')
@@ -16,10 +20,52 @@ export default function Navbar() {
             .catch(() => setUser(null));
     }, []);
 
+    useEffect(() => {
+        if (!user) return;
+        
+        const fetchNotifs = () => {
+            fetch('/api/notifications')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.notifications) {
+                        setNotifications(data.notifications);
+                        const unreadArr = data.notifications.filter((n: any) => !n.is_read).length;
+                        setUnreadCount(unreadArr + (data.unreadMessagesCount || 0));
+                    }
+                })
+                .catch(err => console.error(err));
+        };
+
+        fetchNotifs();
+        const interval = setInterval(fetchNotifs, 5000);
+        return () => clearInterval(interval);
+    }, [user]);
+
+    useEffect(() => {
+        // Handle click outside dropdown
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setShowNotifications(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
         setUser(null);
         window.location.href = '/';
+    };
+
+    const handleMarkAllRead = async () => {
+        try {
+            await fetch('/api/notifications/read', { method: 'POST' });
+            setUnreadCount(0);
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        } catch (error) {
+            console.error(error);
+        }
     };
 
     return (
@@ -42,8 +88,70 @@ export default function Navbar() {
 
                     <div className={styles.auth}>
                         {user ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <span style={{ color: 'var(--text-muted)' }}>Chào, <strong style={{ color: 'white' }}>{user.name}</strong></span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }} ref={dropdownRef}>
+                                {/* Notifications */}
+                                <div style={{ position: 'relative' }}>
+                                    <button 
+                                        onClick={() => setShowNotifications(!showNotifications)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', color: 'var(--text-main)', padding: '0.5rem' }}
+                                    >
+                                        <Bell size={20} />
+                                        {unreadCount > 0 && (
+                                            <span style={{ 
+                                                position: 'absolute', top: 0, right: 0, 
+                                                background: '#ef4444', color: 'white', 
+                                                fontSize: '0.65rem', fontWeight: 'bold', 
+                                                padding: '0.1rem 0.35rem', borderRadius: '1rem' 
+                                            }}>
+                                                {unreadCount}
+                                            </span>
+                                        )}
+                                    </button>
+
+                                    {/* Dropdown */}
+                                    {showNotifications && (
+                                        <div style={{
+                                            position: 'absolute', top: '100%', right: '0',
+                                            width: '320px', background: 'var(--surface)',
+                                            border: '1px solid var(--border)', borderRadius: '0.5rem',
+                                            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                                            zIndex: 50, overflow: 'hidden', marginTop: '0.5rem'
+                                        }}>
+                                            <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <h3 style={{ margin: 0, fontSize: '1rem' }}>Thông báo</h3>
+                                                {unreadCount > 0 && (
+                                                    <button onClick={handleMarkAllRead} style={{ background: 'none', border: 'none', color: '#818cf8', fontSize: '0.8rem', cursor: 'pointer' }}>
+                                                        Đánh dấu đã đọc
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                                {notifications.length === 0 ? (
+                                                    <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>Bạn không có thông báo nào</p>
+                                                ) : (
+                                                    notifications.map((notif: any) => (
+                                                        <div key={notif.id} style={{ 
+                                                            padding: '1rem', borderBottom: '1px solid var(--border)',
+                                                            background: notif.is_read ? 'transparent' : 'rgba(99, 102, 241, 0.05)'
+                                                        }}>
+                                                            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-main)' }}>{notif.content}</p>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(notif.created_at).toLocaleString('vi-VN')}</span>
+                                                                {notif.link && (
+                                                                    <Link href={notif.link} onClick={() => setShowNotifications(false)} style={{ fontSize: '0.8rem', color: '#818cf8' }}>
+                                                                        Xem chi tiết
+                                                                    </Link>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <span style={{ color: 'var(--text-muted)' }}>Chào, <strong style={{ color: 'var(--text-main)' }}>{user.name}</strong></span>
                                 <button
                                     onClick={handleLogout}
                                     className="btn btn-outline"

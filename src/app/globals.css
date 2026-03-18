@@ -5,22 +5,22 @@
   /* Indigo 600 */
   --secondary-color: #ec4899;
   /* Pink 500 */
-  --background: #0f172a;
-  /* Slate 900 */
-  --surface: #1e293b;
-  /* Slate 800 */
-  --text-main: #f8fafc;
-  /* Slate 50 */
-  --text-muted: #94a3b8;
-  /* Slate 400 */
-  --border: #334155;
-  /* Slate 700 */
+  --background: #f8fafc;
+  /* Light background */
+  --surface: #ffffff;
+  /* White surface */
+  --text-main: #16223e;
+  /* Dark text */
+  --text-muted: #475569;
+  /* Muted dark text */
+  --border: #e2e8f0;
+  /* Light border */
   --success: #22c55e;
   --warning: #eab308;
   --error: #ef4444;
 
-  --glass-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(43, 33, 33, 0.3);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

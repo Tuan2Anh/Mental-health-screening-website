@@ -41,6 +41,9 @@ async function main() {
         { content: 'Tôi thấy cuộc sống vô nghĩa', score_min: 0, score_max: 3 },
     ]
 
+    // Clear existing questions for DASS-21
+    await prisma.question.deleteMany({ where: { scale_id: dass21.scale_id } })
+
     for (const q of questionsData) {
         await prisma.question.create({
             data: {
@@ -49,6 +52,76 @@ async function main() {
                 score_min: q.score_min,
                 score_max: q.score_max,
             },
+        })
+    }
+
+    // 2. PHQ-9 (Depression)
+    const phq9 = await prisma.psychoScale.upsert({
+        where: { scale_id: 2 },
+        update: {},
+        create: {
+            scale_name: 'PHQ-9',
+            description: 'Bảng câu hỏi sức khỏe bệnh nhân (9 câu hỏi). Đánh giá mức độ trầm cảm trong 2 tuần qua.',
+        },
+    })
+
+    const phq9Questions = [
+        "Ít khi thấy hứng thú hoặc vui vẻ trong các hoạt động",
+        "Cảm thấy buồn chán, trầm cảm hoặc tuyệt vọng",
+        "Khó ngủ, ngủ không sâu giấc hoặc ngủ quá nhiều",
+        "Cảm thấy mệt mỏi hoặc thiếu năng lượng",
+        "Ăn không ngon miệng hoặc ăn quá nhiều",
+        "Cảm thấy tồi tệ về bản thân - hoặc thấy mình là người thất bại hoặc làm cho bản thân và gia đình thất vọng",
+        "Khó tập trung vào công việc, chẳng hạn như khi đọc báo hoặc xem tivi",
+        "Di chuyển hoặc nói năng chậm chạp đến mức người khác có thể nhận thấy. Hoặc ngược lại - bồn chồn hoặc không yên đến mức bạn phải di chuyển nhiều hơn bình thường",
+        "Có ý nghĩ rằng bạn thà chết còn hơn hoặc ý nghĩ làm hại bản thân bằng cách nào đó"
+    ]
+
+    // Clear existing questions for PHQ-9
+    await prisma.question.deleteMany({ where: { scale_id: phq9.scale_id } })
+
+    for (const content of phq9Questions) {
+        await prisma.question.create({
+            data: {
+                scale_id: phq9.scale_id,
+                content: content,
+                score_min: 0,
+                score_max: 3,
+            }
+        })
+    }
+
+    // 3. GAD-7 (Anxiety)
+    const gad7 = await prisma.psychoScale.upsert({
+        where: { scale_id: 3 },
+        update: {},
+        create: {
+            scale_name: 'GAD-7',
+            description: 'Thang đo Lo âu Lan tỏa (7 câu hỏi). Đánh giá mức độ lo âu trong 2 tuần qua.',
+        },
+    })
+
+    const gad7Questions = [
+        "Cảm thấy lo lắng, căng thẳng hoặc bồn chồn",
+        "Không thể ngăn việc lo lắng hoặc kiểm soát sự lo lắng",
+        "Lo lắng quá mức về nhiều thứ khác nhau",
+        "Khó thư giãn",
+        "Bồn chồn đến mức khó có thể ngồi yên",
+        "Dễ dàng trở nên bực bội hoặc cáu kỉnh",
+        "Cảm thấy sợ hãi như thể có điều gì đó khủng khiếp sắp xảy ra"
+    ]
+
+    // Clear existing questions for GAD-7
+    await prisma.question.deleteMany({ where: { scale_id: gad7.scale_id } })
+
+    for (const content of gad7Questions) {
+        await prisma.question.create({
+            data: {
+                scale_id: gad7.scale_id,
+                content: content,
+                score_min: 0,
+                score_max: 3,
+            }
         })
     }
 
@@ -64,7 +137,21 @@ async function main() {
         },
     })
 
-    console.log({ admin })
+    // 4. Create Expert User
+    const expert = await prisma.user.upsert({
+        where: { email: 'dr.minh@psychohealth.com' },
+        update: {},
+        create: {
+            full_name: 'Bác sĩ Minh',
+            email: 'dr.minh@psychohealth.com',
+            password: '$2a$10$tZ2n4xUQUK1t3qE8qZ6I.OS/zTqH.g4U4M2r6Q7M5h.N8C2jCqC2q', // Hash of '123456' for testing
+            role: 'expert',
+            specialty: 'Tâm lý học lâm sàng',
+            avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026024d'
+        },
+    })
+
+    console.log({ admin, expert })
 }
 
 main()

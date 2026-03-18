@@ -1,5 +1,5 @@
 .navbar {
-    background: rgba(15, 23, 42, 0.8);
+    background: var(--glass-bg);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border);
@@ -15,7 +15,7 @@
     gap: 0.75rem;
     font-size: 1.5rem;
     font-weight: 700;
-    color: white;
+    color: var(--text-main);
 }
 
 .menu {
@@ -47,7 +47,7 @@
     display: none;
     background: none;
     border: none;
-    color: white;
+    color: var(--text-main);
     cursor: pointer;
 }
 

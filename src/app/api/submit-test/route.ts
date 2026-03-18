@@ -36,68 +36,115 @@ export async function POST(request: Request) {
         // Let's fetch questions from DB to map ID to Index properly (safer)
         const questionsInDb = await prisma.question.findMany({
             where: { scale_id: scaleId },
-            orderBy: { question_id: 'asc' } // Assuming insertion order matches 1-21
+            orderBy: { question_id: 'asc' }
         });
 
-        // Map answer to question index (0-based)
-        const answersMap = new Map<number, number>(); // questionId -> score
+        const answersMap = new Map<number, number>();
         answers.forEach(a => answersMap.set(a.questionId, a.score));
 
-        // Categories (using 0-based index)
-        const categories = {
-            S: [0, 5, 7, 10, 11, 13, 17], // Stress: 1, 6, 8, 11, 12, 14, 18
-            A: [1, 3, 6, 8, 14, 18, 19],  // Anxiety: 2, 4, 7, 9, 15, 19, 20
-            D: [2, 4, 9, 12, 15, 16, 20]  // Depression: 3, 5, 10, 13, 16, 17, 21
-        };
+        let resultDetails: any = null;
+        let riskLevel = 'Không xác định';
+        let totalScore = 0;
 
-        // Calculate Raw Scores
-        let rawS = 0, rawA = 0, rawD = 0;
+        // Fetch scale info to know which one it is
+        const scale = await prisma.psychoScale.findUnique({ where: { scale_id: scaleId } });
 
-        questionsInDb.forEach((q, index) => {
-            const score = answersMap.get(q.question_id) || 0;
-            if (categories.S.includes(index)) rawS += score;
-            else if (categories.A.includes(index)) rawA += score;
-            else if (categories.D.includes(index)) rawD += score;
-        });
+        if (scale?.scale_name === 'DASS-21') {
+            const categories = {
+                S: [0, 5, 7, 10, 11, 13, 17], // Stress
+                A: [1, 3, 6, 8, 14, 18, 19],  // Anxiety
+                D: [2, 4, 9, 12, 15, 16, 20]  // Depression
+            };
 
-        // Multiply by 2
-        const scoreS = rawS * 2;
-        const scoreA = rawA * 2;
-        const scoreD = rawD * 2;
+            let rawS = 0, rawA = 0, rawD = 0;
+            questionsInDb.forEach((q, index) => {
+                const score = answersMap.get(q.question_id) || 0;
+                if (categories.S.includes(index)) rawS += score;
+                else if (categories.A.includes(index)) rawA += score;
+                else if (categories.D.includes(index)) rawD += score;
+            });
 
-        // Determine Levels function
-        const getLevel = (score: number, type: 'D' | 'A' | 'S') => {
-            if (type === 'D') {
-                if (score <= 9) return 'Bình thường';
-                if (score <= 13) return 'Nhẹ';
-                if (score <= 20) return 'Vừa';
-                if (score <= 27) return 'Nặng';
-                return 'Rất nặng';
-            }
-            if (type === 'A') {
-                if (score <= 7) return 'Bình thường';
-                if (score <= 9) return 'Nhẹ';
-                if (score <= 14) return 'Vừa';
-                if (score <= 19) return 'Nặng';
-                return 'Rất nặng';
-            }
-            if (type === 'S') {
-                if (score <= 14) return 'Bình thường';
-                if (score <= 18) return 'Nhẹ';
-                if (score <= 25) return 'Vừa';
-                if (score <= 33) return 'Nặng';
-                return 'Rất nặng';
-            }
-            return 'Không xác định';
-        };
+            const scoreS = rawS * 2;
+            const scoreA = rawA * 2;
+            const scoreD = rawD * 2;
 
-        const resultDetails = {
-            depression: { score: scoreD, level: getLevel(scoreD, 'D') },
-            anxiety: { score: scoreA, level: getLevel(scoreA, 'A') },
-            stress: { score: scoreS, level: getLevel(scoreS, 'S') }
-        };
+            const getLevel = (score: number, type: 'D' | 'A' | 'S') => {
+                if (type === 'D') {
+                    if (score <= 9) return 'Bình thường';
+                    if (score <= 13) return 'Nhẹ';
+                    if (score <= 20) return 'Vừa';
+                    if (score <= 27) return 'Nặng';
+                    return 'Rất nặng';
+                }
+                if (type === 'A') {
+                    if (score <= 7) return 'Bình thường';
+                    if (score <= 9) return 'Nhẹ';
+                    if (score <= 14) return 'Vừa';
+                    if (score <= 19) return 'Nặng';
+                    return 'Rất nặng';
+                }
+                if (type === 'S') {
+                    if (score <= 14) return 'Bình thường';
+                    if (score <= 18) return 'Nhẹ';
+                    if (score <= 25) return 'Vừa';
+                    if (score <= 33) return 'Nặng';
+                    return 'Rất nặng';
+                }
+                return 'Không xác định';
+            };
 
-        const totalScore = scoreD + scoreA + scoreS; // Or just save the detail string
+            resultDetails = {
+                type: 'DASS-21',
+                depression: { score: scoreD, level: getLevel(scoreD, 'D'), max: 42 },
+                anxiety: { score: scoreA, level: getLevel(scoreA, 'A'), max: 42 },
+                stress: { score: scoreS, level: getLevel(scoreS, 'S'), max: 42 }
+            };
+            totalScore = scoreD + scoreA + scoreS;
+            riskLevel = `S:${getLevel(scoreS, 'S')}, A:${getLevel(scoreA, 'A')}, D:${getLevel(scoreD, 'D')}`;
+        } 
+        else if (scale?.scale_name === 'PHQ-9') {
+            let sum = 0;
+            answers.forEach(a => sum += a.score);
+            totalScore = sum;
+            
+            if (sum <= 4) riskLevel = 'Tối thiểu';
+            else if (sum <= 9) riskLevel = 'Nhẹ';
+            else if (sum <= 14) riskLevel = 'Trung bình';
+            else if (sum <= 19) riskLevel = 'Trung bình nặng';
+            else riskLevel = 'Nặng';
+
+            resultDetails = {
+                type: 'SINGLE',
+                score: sum,
+                level: riskLevel,
+                max: 27,
+                label: 'Trầm cảm'
+            };
+        }
+        else if (scale?.scale_name === 'GAD-7') {
+            let sum = 0;
+            answers.forEach(a => sum += a.score);
+            totalScore = sum;
+
+            if (sum <= 4) riskLevel = 'Tối thiểu';
+            else if (sum <= 9) riskLevel = 'Nhẹ';
+            else if (sum <= 14) riskLevel = 'Trung bình';
+            else riskLevel = 'Nặng';
+
+            resultDetails = {
+                type: 'SINGLE',
+                score: sum,
+                level: riskLevel,
+                max: 21,
+                label: 'Lo âu'
+            };
+        }
+        else {
+            // General Sum
+            answers.forEach(a => totalScore += a.score);
+            riskLevel = 'Đã hoàn thành';
+            resultDetails = { type: 'GENERAL', score: totalScore };
+        }
 
         // Save Result
         const testResult = await prisma.testResult.create({
@@ -105,7 +152,8 @@ export async function POST(request: Request) {
                 user_id: userId,
                 scale_id: scaleId,
                 total_score: totalScore,
-                risk_level: JSON.stringify(resultDetails), // Storing JSON in string field
+                risk_level: riskLevel,
+                result_details: JSON.stringify(resultDetails), // We'll need to update schema or use risk_level if strictly string
                 answers: {
                     create: answers.map(a => ({
                         question_id: a.questionId,
@@ -115,6 +163,8 @@ export async function POST(request: Request) {
             }
         });
 
+        // Wait, the schema might not have resultDetails field as a separate JSON.
+        // Let's check schema.prisma
         return NextResponse.json({ ...testResult, resultDetails });
     } catch (error) {
         console.error(error);
