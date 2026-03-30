@@ -7,17 +7,23 @@ import styles from './Navbar.module.css';
 
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
-    const [user, setUser] = useState<{ name: string, email: string, role?: string } | null>(null);
+    const [user, setUser] = useState<{ name: string, email: string, role?: string, full_name?: string, avatar?: string } | null>(null);
     const [notifications, setNotifications] = useState<any[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showNotifications, setShowNotifications] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        fetch('/api/auth/me')
-            .then(res => res.json())
-            .then(data => setUser(data.user))
-            .catch(() => setUser(null));
+        const fetchUser = () => {
+            fetch('/api/auth/me')
+                .then(res => res.json())
+                .then(data => setUser(data.user || null))
+                .catch(() => setUser(null));
+        };
+        fetchUser();
+        // Set a listener or check periodically for profile updates
+        const interval = setInterval(fetchUser, 30000); 
+        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
@@ -85,6 +91,9 @@ export default function Navbar() {
                         <Calendar size={18} />
                         Đặt Lịch
                     </Link>
+                    <Link href="/about" className={styles.link}>
+                        Tìm Hiểu Thêm
+                    </Link>
 
                     <div className={styles.auth}>
                         {user ? (
@@ -151,7 +160,18 @@ export default function Navbar() {
                                     )}
                                 </div>
 
-                                <span style={{ color: 'var(--text-muted)' }}>Chào, <strong style={{ color: 'var(--text-main)' }}>{user.name}</strong></span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: '#f8fafc', border: '1px solid var(--border)' }}>
+                                        {user.avatar ? (
+                                            <img src={user.avatar} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <User size={16} color="var(--text-muted)" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <span style={{ color: 'var(--text-muted)' }}>Chào, <Link href="/profile" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600 }}>{user.full_name || user.name}</Link></span>
+                                </div>
                                 <button
                                     onClick={handleLogout}
                                     className="btn btn-outline"

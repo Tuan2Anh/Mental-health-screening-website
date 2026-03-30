@@ -41,7 +41,9 @@ async function main() {
         { content: 'Tôi thấy cuộc sống vô nghĩa', score_min: 0, score_max: 3 },
     ]
 
-    // Clear existing questions for DASS-21
+    // Clear existing answers and test results that reference THESE questions/scales
+    await prisma.answer.deleteMany({ where: { question: { scale_id: dass21.scale_id } } })
+    await prisma.testResult.deleteMany({ where: { scale_id: dass21.scale_id } })
     await prisma.question.deleteMany({ where: { scale_id: dass21.scale_id } })
 
     for (const q of questionsData) {
@@ -77,7 +79,9 @@ async function main() {
         "Có ý nghĩ rằng bạn thà chết còn hơn hoặc ý nghĩ làm hại bản thân bằng cách nào đó"
     ]
 
-    // Clear existing questions for PHQ-9
+    // Clear existing answers and test results that reference THESE questions/scales
+    await prisma.answer.deleteMany({ where: { question: { scale_id: phq9.scale_id } } })
+    await prisma.testResult.deleteMany({ where: { scale_id: phq9.scale_id } })
     await prisma.question.deleteMany({ where: { scale_id: phq9.scale_id } })
 
     for (const content of phq9Questions) {
@@ -111,7 +115,9 @@ async function main() {
         "Cảm thấy sợ hãi như thể có điều gì đó khủng khiếp sắp xảy ra"
     ]
 
-    // Clear existing questions for GAD-7
+    // Clear existing answers and test results that reference THESE questions/scales
+    await prisma.answer.deleteMany({ where: { question: { scale_id: gad7.scale_id } } })
+    await prisma.testResult.deleteMany({ where: { scale_id: gad7.scale_id } })
     await prisma.question.deleteMany({ where: { scale_id: gad7.scale_id } })
 
     for (const content of gad7Questions) {
@@ -137,21 +143,47 @@ async function main() {
         },
     })
 
-    // 4. Create Expert User
-    const expert = await prisma.user.upsert({
+    // 4. Create Expert Users
+    const expert1 = await prisma.user.upsert({
         where: { email: 'dr.minh@psychohealth.com' },
         update: {},
         create: {
-            full_name: 'Bác sĩ Minh',
+            full_name: 'ThS.BS Nguyễn Văn Minh',
             email: 'dr.minh@psychohealth.com',
-            password: '$2a$10$tZ2n4xUQUK1t3qE8qZ6I.OS/zTqH.g4U4M2r6Q7M5h.N8C2jCqC2q', // Hash of '123456' for testing
+            password: '$2a$10$tZ2n4xUQUK1t3qE8qZ6I.OS/zTqH.g4U4M2r6Q7M5h.N8C2jCqC2q', 
             role: 'expert',
-            specialty: 'Tâm lý học lâm sàng',
-            avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026024d'
+            specialty: 'Trị liệu Hành vi nhận thức (CBT)',
+            avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=200&h=200'
         },
     })
 
-    console.log({ admin, expert })
+    const expert2 = await prisma.user.upsert({
+        where: { email: 'dr.lan@psychohealth.com' },
+        update: {},
+        create: {
+            full_name: 'TS.BS Trần Thị Lan',
+            email: 'dr.lan@psychohealth.com',
+            password: '$2a$10$tZ2n4xUQUK1t3qE8qZ6I.OS/zTqH.g4U4M2r6Q7M5h.N8C2jCqC2q',
+            role: 'expert',
+            specialty: 'Tâm lý học Trẻ em & Vị thành niên',
+            avatar: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&q=80&w=200&h=200'
+        },
+    })
+
+    const expert3 = await prisma.user.upsert({
+        where: { email: 'dr.tuan@psychohealth.com' },
+        update: {},
+        create: {
+            full_name: 'BS.CKII Lê Anh Tuấn',
+            email: 'dr.tuan@psychohealth.com',
+            password: '$2a$10$tZ2n4xUQUK1t3qE8qZ6I.OS/zTqH.g4U4M2r6Q7M5h.N8C2jCqC2q',
+            role: 'expert',
+            specialty: 'Tham vấn Gia đình & Cặp đôi',
+            avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=200&h=200'
+        },
+    })
+
+    console.log({ admin, expert1, expert2, expert3 })
 }
 
 main()
