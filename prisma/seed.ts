@@ -131,6 +131,113 @@ async function main() {
         })
     }
 
+    // 4. ISI (Insomnia Severity Index)
+    const isi = await prisma.psychoScale.upsert({
+        where: { scale_id: 4 },
+        update: {},
+        create: {
+            scale_name: 'ISI',
+            description: 'Chỉ số mức độ nghiêm trọng của chứng mất ngủ (7 câu hỏi). Đánh giá chất lượng giấc ngủ.',
+        },
+    })
+
+    const isiQuestions = [
+        "Mức độ khó đi vào giấc ngủ của bạn",
+        "Mức độ ngủ không yên giấc, thường xuyên thức giấc",
+        "Mức độ thức dậy quá sớm và không ngủ lại được",
+        "Mức độ hài lòng với chu kỳ ngủ hiện tại của bạn",
+        "Mức độ ảnh hưởng của giấc ngủ đến hoạt động ban ngày (tập trung, trí nhớ, tâm trạng)",
+        "Mức độ người khác nhận thấy sự ảnh hưởng từ vấn đề giấc ngủ của bạn",
+        "Mức độ lo lắng/muộn phiền về vấn đề giấc ngủ hiện tại"
+    ]
+
+    await prisma.answer.deleteMany({ where: { question: { scale_id: isi.scale_id } } })
+    await prisma.testResult.deleteMany({ where: { scale_id: isi.scale_id } })
+    await prisma.question.deleteMany({ where: { scale_id: isi.scale_id } })
+
+    for (const content of isiQuestions) {
+        await prisma.question.create({
+            data: {
+                scale_id: isi.scale_id,
+                content: content,
+                score_min: 0,
+                score_max: 4,
+            }
+        })
+    }
+
+    // 5. ASRS (Adult ADHD Self-Report Scale)
+    const asrs = await prisma.psychoScale.upsert({
+        where: { scale_id: 5 },
+        update: {},
+        create: {
+            scale_name: 'ASRS',
+            description: 'Thang đo tự đánh giá ADHD ở người trưởng thành (6 câu hỏi ưu tiên).',
+        },
+    })
+
+    const asrsQuestions = [
+        "Khó khăn khi làm phần cuối của công việc một khi các phần nhàm chán đã xong",
+        "Khó khăn khi phải sắp xếp các công việc cần tính tổ chức",
+        "Khó khăn khi phải nhớ các cuộc hẹn hay công việc cần làm",
+        "Trì hoãn hoặc tránh né công việc đòi hỏi sự suy nghĩ nhiều",
+        "Quơ tay múa chân hoặc ngọ nguậy khi phải ngồi lâu",
+        "Cảm thấy quá hăng hái và bị thôi thúc phải làm điều gì đó như có động cơ thúc đẩy"
+    ]
+
+    await prisma.answer.deleteMany({ where: { question: { scale_id: asrs.scale_id } } })
+    await prisma.testResult.deleteMany({ where: { scale_id: asrs.scale_id } })
+    await prisma.question.deleteMany({ where: { scale_id: asrs.scale_id } })
+
+    for (const content of asrsQuestions) {
+        await prisma.question.create({
+            data: {
+                scale_id: asrs.scale_id,
+                content: content,
+                score_min: 0,
+                score_max: 4,
+            }
+        })
+    }
+
+    // 6. PSS-10 (Perceived Stress Scale)
+    const pss10 = await prisma.psychoScale.upsert({
+        where: { scale_id: 6 },
+        update: {},
+        create: {
+            scale_name: 'PSS-10',
+            description: 'Thang đo Căng thẳng Cảm nhận (10 câu hỏi). Đánh giá mức độ stress trong 1 tháng qua.',
+        },
+    })
+
+    const pss10Questions = [
+        "Cảm thấy buồn bã vì một điều gì đó xảy ra bất ngờ",
+        "Cảm thấy không thể kiểm soát các vấn đề quan trọng trong cuộc sống",
+        "Cảm thấy lo lắng và căng thẳng",
+        "Cảm thấy tự tin về khả năng xử lý các vấn đề cá nhân",
+        "Cảm thấy mọi việc đang đi theo ý mình",
+        "Cảm thấy không thể giải quyết tất cả những việc phải làm",
+        "Cảm thấy có khả năng kiểm soát gánh nặng trong cuộc sống",
+        "Cảm thấy đang làm chủ mọi việc",
+        "Cảm thấy tức giận vì những điều nằm ngoài tầm kiểm soát",
+        "Cảm thấy khó khăn chất chồng đến mức không thể vượt qua"
+    ]
+
+    await prisma.answer.deleteMany({ where: { question: { scale_id: pss10.scale_id } } })
+    await prisma.testResult.deleteMany({ where: { scale_id: pss10.scale_id } })
+    await prisma.question.deleteMany({ where: { scale_id: pss10.scale_id } })
+
+    for (const content of pss10Questions) {
+        await prisma.question.create({
+            data: {
+                scale_id: pss10.scale_id,
+                content: content,
+                score_min: 0,
+                score_max: 4,
+            }
+        })
+    }
+
     // 3. Create Admin User
     const admin = await prisma.user.upsert({
         where: { email: 'admin@psychohealth.com' },

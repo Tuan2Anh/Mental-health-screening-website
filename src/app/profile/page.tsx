@@ -110,26 +110,30 @@ export default function ProfilePage() {
                         <h2 style={{ marginBottom: '0.25rem' }}>{user.full_name}</h2>
                         <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>{user.email}</p>
                         
-                        <div style={{ 
-                            display: 'inline-block', 
-                            padding: '0.5rem 1rem', 
-                            borderRadius: '2rem', 
-                            background: user.role === 'expert' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(99, 102, 241, 0.1)',
-                            color: user.role === 'expert' ? '#22c55e' : '#818cf8',
-                            fontSize: '0.875rem',
-                            fontWeight: 600,
-                            textTransform: 'uppercase'
-                        }}>
-                            {user.role === 'expert' ? 'Chuyên Gia' : 'Người Dùng'}
-                        </div>
+                        {user.role === 'expert' && (
+                            <div style={{ 
+                                display: 'inline-block', 
+                                padding: '0.5rem 1rem', 
+                                borderRadius: '2rem', 
+                                background: 'rgba(34, 197, 94, 0.1)',
+                                color: '#22c55e',
+                                fontSize: '0.875rem',
+                                fontWeight: 600,
+                                textTransform: 'uppercase'
+                            }}>
+                                Chuyên Gia
+                            </div>
+                        )}
 
                         <div style={{ marginTop: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
                                 <Mail size={18} /> <span>{user.email}</span>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
-                                <Shield size={18} /> <span>Quyền hạn: {user.role}</span>
-                            </div>
+                            {user.role !== 'user' && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
+                                    <Shield size={18} /> <span>Quyền hạn: {user.role}</span>
+                                </div>
+                            )}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
                                 <Calendar size={18} /> <span>Ngày tham gia: {new Date(user.created_at).toLocaleDateString('vi-VN')}</span>
                             </div>

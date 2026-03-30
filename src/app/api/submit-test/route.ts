@@ -139,11 +139,68 @@ export async function POST(request: Request) {
                 label: 'Lo âu'
             };
         }
+        else if (scale?.scale_name === 'ISI') {
+            let sum = 0;
+            answers.forEach(a => sum += a.score);
+            totalScore = sum;
+
+            if (sum <= 7) riskLevel = 'Bình thường';
+            else if (sum <= 14) riskLevel = 'Nhẹ (Dưới lâm sàng)';
+            else if (sum <= 21) riskLevel = 'Trung bình (Lâm sàng)';
+            else riskLevel = 'Nặng (Lâm sàng)';
+
+            resultDetails = {
+                type: 'SINGLE',
+                score: sum,
+                level: riskLevel,
+                max: 28,
+                label: 'Mất ngủ'
+            };
+        }
+        else if (scale?.scale_name === 'ASRS') {
+            let sum = 0;
+            answers.forEach(a => sum += a.score);
+            totalScore = sum;
+
+            if (sum <= 13) riskLevel = 'Ít dấu hiệu ADHD';
+            else riskLevel = 'Có nguy cơ ADHD';
+
+            resultDetails = {
+                type: 'SINGLE',
+                score: sum,
+                level: riskLevel,
+                max: 24,
+                label: 'Triệu chứng ADHD'
+            };
+        }
+        else if (scale?.scale_name === 'PSS-10') {
+            let sum = 0;
+            answers.forEach(a => sum += a.score);
+            totalScore = sum;
+
+            if (sum <= 13) riskLevel = 'Thấp';
+            else if (sum <= 26) riskLevel = 'Trung bình';
+            else riskLevel = 'Cao';
+
+            resultDetails = {
+                type: 'SINGLE',
+                score: sum,
+                level: riskLevel,
+                max: 40,
+                label: 'Căng thẳng (Stress)'
+            };
+        }
         else {
             // General Sum
             answers.forEach(a => totalScore += a.score);
             riskLevel = 'Đã hoàn thành';
-            resultDetails = { type: 'GENERAL', score: totalScore };
+            resultDetails = { 
+                type: 'SINGLE', 
+                score: totalScore, 
+                level: 'Đã hoàn thành', 
+                max: answers.length * 3, 
+                label: 'Tổng điểm' 
+            };
         }
 
         // Save Result
