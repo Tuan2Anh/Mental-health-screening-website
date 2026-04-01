@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "npx prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
@@ -29,8 +29,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
+    "eslint": "^8",
     "eslint-config-next": "^14.2.35",
+    "prisma": "^6.19.2",
     "ts-node": "^10.9.2",
     "typescript": "^5"
   },
