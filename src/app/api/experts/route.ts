@@ -5,7 +5,10 @@ export async function GET() {
   try {
     const experts = await prisma.user.findMany({
       where: {
-        role: 'expert',
+        OR: [
+          { role: 'expert' },
+          { role: 'Expert' }
+        ]
       },
       select: {
         user_id: true,
@@ -14,6 +17,9 @@ export async function GET() {
         avatar: true,
         specialty: true,
       },
+      orderBy: {
+        full_name: 'asc'
+      }
     });
 
     return NextResponse.json(experts);
