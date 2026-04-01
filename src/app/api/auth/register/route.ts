@@ -4,9 +4,9 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
     try {
-        const { full_name, email, password } = await request.json();
+        const { full_name, email, password, gender, age, address } = await request.json();
 
-        if (!email || !password || !full_name) {
+        if (!email || !password || !full_name || !gender || !age || !address) {
             return NextResponse.json(
                 { error: 'Vui lòng điền đầy đủ thông tin' },
                 { status: 400 }
@@ -26,6 +26,15 @@ export async function POST(request: Request) {
         if (password.length < 6) {
             return NextResponse.json(
                 { error: 'Mật khẩu phải có ít nhất 6 ký tự' },
+                { status: 400 }
+            );
+        }
+
+        // Age validation
+        const ageNum = parseInt(age);
+        if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+            return NextResponse.json(
+                { error: 'Tuổi phải là số từ 1 đến 120' },
                 { status: 400 }
             );
         }
@@ -51,7 +60,10 @@ export async function POST(request: Request) {
                 full_name,
                 email,
                 password: hashedPassword,
-                role: 'user', // Default role
+                role: 'user',
+                gender,
+                age: ageNum,
+                address,
             },
         });
 

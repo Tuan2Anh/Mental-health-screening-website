@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, User, Video, MapPin, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 export default function AppointmentsPage() {
     const router = useRouter();
@@ -73,17 +74,17 @@ export default function AppointmentsPage() {
                 })
             });
             if (res.ok) {
-                alert('Đặt lịch thành công!');
+                toast.success('Đặt lịch thành công');
                 fetchAppointments(); // Refresh list
                 setSelectedExpert('');
                 setDate('');
                 setTime('');
             } else {
                 const data = await res.json();
-                alert(data.error || 'Lỗi đặt lịch');
+                toast.error(data.error || 'Lỗi đặt lịch');
             }
         } catch (error) {
-            alert('Lỗi hệ thống');
+            toast.error('Lỗi hệ thống, vui lòng thử lại.');
         } finally {
             setBooking(false);
         }
@@ -100,10 +101,10 @@ export default function AppointmentsPage() {
                 fetchAppointments(); // Refresh list to see updated status
             } else {
                 const data = await res.json();
-                alert(data.error || 'Lỗi cập nhật');
+                toast.error(data.error || 'Lỗi cập nhật');
             }
         } catch (error) {
-            alert('Lỗi hệ thống');
+            toast.error('Lỗi hệ thống, vui lòng thử lại.');
         }
     };
 

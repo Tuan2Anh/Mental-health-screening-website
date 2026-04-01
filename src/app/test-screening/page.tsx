@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Brain, Check, ArrowRight, RefreshCcw, AlertTriangle, CheckCircle, Plus, Trash2, Save, X as CloseIcon } from 'lucide-react';
 import styles from './Screening.module.css';
+import toast from 'react-hot-toast';
 
 // ... interfaces ...
 interface Scale {
@@ -109,7 +110,7 @@ export default function ScreeningTestPage() {
             window.scrollTo(0, 0);
         } catch (error) {
             console.error(error);
-            alert('Lỗi nộp bài');
+            toast.error('Lỗi nộp bài, vui lòng thử lại.');
         } finally {
             setSubmitting(false);
         }
@@ -140,7 +141,7 @@ export default function ScreeningTestPage() {
 
     const handleSaveScale = async () => {
         if (!newScaleName || newQuestions.some(q => !q.content)) {
-            alert('Vui lòng điền đủ tên bộ sàng lọc và nội dung các câu hỏi.');
+            toast.error('Vui lòng điền đủ tên bộ sàng lọc và nội dung các câu hỏi.');
             return;
         }
 
@@ -157,7 +158,7 @@ export default function ScreeningTestPage() {
             });
 
             if (res.ok) {
-                alert('Thêm bộ sàng lọc thành công!');
+                toast.success('Thêm bộ sàng lọc thành công');
                 setIsAddingScale(false);
                 setNewScaleName('');
                 setNewScaleDesc('');
@@ -169,11 +170,11 @@ export default function ScreeningTestPage() {
                 setScales(scalesData);
             } else {
                 const error = await res.json();
-                alert(error.error || 'Lỗi khi lưu');
+                toast.error(error.error || 'Lỗi khi lưu');
             }
         } catch (error) {
             console.error(error);
-            alert('Lỗi hệ thống');
+            toast.error('Lỗi hệ thống, vui lòng thử lại.');
         } finally {
             setSubmitting(false);
         }

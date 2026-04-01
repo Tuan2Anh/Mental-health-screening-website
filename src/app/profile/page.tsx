@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User as UserIcon, Mail, Shield, Calendar, Edit2, Save, X, Camera, ClipboardList } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -55,12 +56,12 @@ export default function ProfilePage() {
             if (res.ok) {
                 setEditing(false);
                 fetchUser(); // Refresh user data to update navbar etc.
-                alert('Cập nhật thành công!');
+                toast.success('Cập nhật thông tin thành công');
             } else {
-                alert('Có lỗi xảy ra khi cập nhật.');
+                toast.error('Có lỗi xảy ra khi cập nhật.');
             }
         } catch (error) {
-            alert('Lỗi hệ thống');
+            toast.error('Lỗi hệ thống, vui lòng thử lại.');
         } finally {
             setSaving(false);
         }
@@ -70,7 +71,7 @@ export default function ProfilePage() {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 2 * 1024 * 1024) {
-                alert('Dung lượng ảnh không được vượt quá 2MB');
+                toast.error('Dung lượng ảnh không được vượt quá 2MB');
                 return;
             }
             const reader = new FileReader();
@@ -205,10 +206,19 @@ export default function ProfilePage() {
                                         <input 
                                             type="number" 
                                             value={age} 
-                                            onChange={e => setAge(e.target.value)}
+                                            min={1}
+                                            max={120}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                if (val === '' || (parseInt(val) >= 1 && parseInt(val) <= 120)) {
+                                                    setAge(val);
+                                                }
+                                            }}
                                             placeholder="Nhập số tuổi"
                                             style={{ 
-                                                width: '100%', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '1rem'
+                                                width: '100%', padding: '1rem', borderRadius: '0.75rem', 
+                                                border: '1px solid #e2e8f0', background: '#f8fafc', 
+                                                fontSize: '1rem', boxSizing: 'border-box' as const
                                             }}
                                         />
                                     </div>

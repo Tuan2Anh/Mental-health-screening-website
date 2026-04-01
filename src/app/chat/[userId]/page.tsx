@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Send, User as UserIcon, ArrowLeft, Zap, ZapOff, Video, VideoOff, PhoneOff, Mic, MicOff, Maximize2, Minimize2, FileText, Download } from 'lucide-react';
 import Link from 'next/link';
 import type Peer from 'peerjs';
+import toast from 'react-hot-toast';
 
 export default function ChatPage({ params }: { params: { userId: string } }) {
     const router = useRouter();
@@ -237,7 +238,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
             setupCall(call);
         } catch (err) {
             console.error('[WebRTC] Failed to get local stream', err);
-            alert('Không thể truy cập camera/micro. Vui lòng kiểm tra quyền thiết bị.');
+            toast.error('Không thể truy cập camera/micro. Vui lòng kiểm tra quyền thiết bị.');
         }
     };
 
@@ -255,7 +256,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
             setIsCalling(true);
         } catch (err) {
             console.error('[WebRTC] Failed to answer call', err);
-            alert('Không thể truy cập camera/micro. Vui lòng kiểm tra quyền thiết bị.');
+            toast.error('Không thể truy cập camera/micro. Vui lòng kiểm tra quyền thiết bị.');
         }
     };
 
