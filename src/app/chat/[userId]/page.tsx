@@ -66,13 +66,13 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
 
         let isInitializing = false;
         const initPeer = async () => {
-            if (isInitializing) return;
+            if (isInitializing || !myUser?.user_id) return;
             isInitializing = true;
 
             const { Peer } = await import('peerjs');
             
-            const myPeerId = `psycho-app-user-${myUser.userId}`;
-            console.log(`[WebRTC] Init for User ${myUser.userId}, ID: ${myPeerId}`);
+            const myPeerId = `psycho-app-user-${myUser.user_id}`;
+            console.log(`[WebRTC] Init for User ${myUser.user_id}, ID: ${myPeerId}`);
 
             if (peerRef.current && !peerRef.current.destroyed) {
                 isInitializing = false;
@@ -486,7 +486,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
         const content = newMessage;
         const msgObj = {
             message_id: Date.now(),
-            sender_id: myUser.userId,
+            sender_id: myUser.user_id,
             receiver_id: otherUserId,
             content: content,
             created_at: new Date().toISOString()
@@ -582,7 +582,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
                         </div>
                     ) : (
                         messages.map((msg: any) => {
-                            const isMe = msg.sender_id === myUser.userId;
+                            const isMe = msg.sender_id === myUser.user_id;
                             return (
                                 <div key={msg.message_id} style={{
                                     display: 'flex',
