@@ -12,7 +12,16 @@ export async function POST(request: Request) {
 
         if (!email || !password) {
             return NextResponse.json(
-                { error: 'Vui lòng nhập email và mật khẩu' },
+                { error: 'Vui lòng nhập đầy đủ email và mật khẩu' },
+                { status: 400 }
+            );
+        }
+
+        // Email format validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return NextResponse.json(
+                { error: 'Định dạng email không hợp lệ' },
                 { status: 400 }
             );
         }

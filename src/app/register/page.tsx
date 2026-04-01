@@ -13,15 +13,53 @@ export default function RegisterPage() {
         password: '',
         confirmPassword: ''
     });
+    const [fieldErrors, setFieldErrors] = useState({
+        full_name: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
+    });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const validate = () => {
+        const errors = { full_name: '', email: '', password: '', confirmPassword: '' };
+        let isValid = true;
+
+        if (!formData.full_name.trim()) {
+            errors.full_name = 'Vui lòng nhập họ và tên';
+            isValid = false;
+        }
+
+        if (!formData.email) {
+            errors.email = 'Vui lòng nhập email';
+            isValid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            errors.email = 'Định dạng email không hợp lệ';
+            isValid = false;
+        }
+
+        if (!formData.password) {
+            errors.password = 'Vui lòng nhập mật khẩu';
+            isValid = false;
+        } else if (formData.password.length < 6) {
+            errors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+            isValid = false;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+            errors.confirmPassword = 'Mật khẩu xác nhận không khớp';
+            isValid = false;
+        }
+
+        setFieldErrors(errors);
+        return isValid;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (formData.password !== formData.confirmPassword) {
-            setError('Mật khẩu xác nhận không khớp');
-            return;
-        }
+        
+        if (!validate()) return;
 
         setLoading(true);
         setError('');
@@ -68,14 +106,24 @@ export default function RegisterPage() {
                             <User className="text-gray-400" size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
                             <input
                                 type="text"
-                                required
                                 className="input-field"
                                 placeholder="Nguyễn Văn A"
                                 value={formData.full_name}
-                                onChange={e => setFormData({ ...formData, full_name: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
+                                onChange={e => {
+                                    setFormData({ ...formData, full_name: e.target.value });
+                                    if (fieldErrors.full_name) setFieldErrors({ ...fieldErrors, full_name: '' });
+                                }}
+                                style={{ 
+                                    width: '100%', 
+                                    padding: '0.75rem 1rem 0.75rem 2.8rem', 
+                                    background: 'rgba(248, 250, 254, 0.5)', 
+                                    border: fieldErrors.full_name ? '1px solid #ef4444' : '1px solid var(--border)', 
+                                    borderRadius: '0.5rem', 
+                                    color: 'black' 
+                                }}
                             />
                         </div>
+                        {fieldErrors.full_name && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>{fieldErrors.full_name}</p>}
                     </div>
 
                     <div>
@@ -84,13 +132,23 @@ export default function RegisterPage() {
                             <Mail className="text-gray-400" size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
                             <input
                                 type="email"
-                                required
                                 placeholder="name@example.com"
                                 value={formData.email}
-                                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
+                                onChange={e => {
+                                    setFormData({ ...formData, email: e.target.value });
+                                    if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' });
+                                }}
+                                style={{ 
+                                    width: '100%', 
+                                    padding: '0.75rem 1rem 0.75rem 2.8rem', 
+                                    background: 'rgba(248, 250, 254, 0.5)', 
+                                    border: fieldErrors.email ? '1px solid #ef4444' : '1px solid var(--border)', 
+                                    borderRadius: '0.5rem', 
+                                    color: 'black' 
+                                }}
                             />
                         </div>
+                        {fieldErrors.email && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>{fieldErrors.email}</p>}
                     </div>
 
                     <div>
@@ -99,13 +157,23 @@ export default function RegisterPage() {
                             <Lock className="text-gray-400" size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
                             <input
                                 type="password"
-                                required
                                 placeholder="••••••••"
                                 value={formData.password}
-                                onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
+                                onChange={e => {
+                                    setFormData({ ...formData, password: e.target.value });
+                                    if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: '' });
+                                }}
+                                style={{ 
+                                    width: '100%', 
+                                    padding: '0.75rem 1rem 0.75rem 2.8rem', 
+                                    background: 'rgba(248, 250, 254, 0.5)', 
+                                    border: fieldErrors.password ? '1px solid #ef4444' : '1px solid var(--border)', 
+                                    borderRadius: '0.5rem', 
+                                    color: 'black' 
+                                }}
                             />
                         </div>
+                        {fieldErrors.password && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>{fieldErrors.password}</p>}
                     </div>
 
                     <div>
@@ -114,13 +182,23 @@ export default function RegisterPage() {
                             <Lock className="text-gray-400" size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
                             <input
                                 type="password"
-                                required
                                 placeholder="••••••••"
                                 value={formData.confirmPassword}
-                                onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.8rem', background: 'rgba(248, 250, 254, 0.5)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'black' }}
+                                onChange={e => {
+                                    setFormData({ ...formData, confirmPassword: e.target.value });
+                                    if (fieldErrors.confirmPassword) setFieldErrors({ ...fieldErrors, confirmPassword: '' });
+                                }}
+                                style={{ 
+                                    width: '100%', 
+                                    padding: '0.75rem 1rem 0.75rem 2.8rem', 
+                                    background: 'rgba(248, 250, 254, 0.5)', 
+                                    border: fieldErrors.confirmPassword ? '1px solid #ef4444' : '1px solid var(--border)', 
+                                    borderRadius: '0.5rem', 
+                                    color: 'black' 
+                                }}
                             />
                         </div>
+                        {fieldErrors.confirmPassword && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>{fieldErrors.confirmPassword}</p>}
                     </div>
 
                     <button

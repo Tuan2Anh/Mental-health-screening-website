@@ -13,6 +13,23 @@ export async function POST(request: Request) {
             );
         }
 
+        // Email format validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return NextResponse.json(
+                { error: 'Định dạng email không hợp lệ' },
+                { status: 400 }
+            );
+        }
+
+        // Password length validation
+        if (password.length < 6) {
+            return NextResponse.json(
+                { error: 'Mật khẩu phải có ít nhất 6 ký tự' },
+                { status: 400 }
+            );
+        }
+
         // Check existing user
         const existingUser = await prisma.user.findUnique({
             where: { email },
