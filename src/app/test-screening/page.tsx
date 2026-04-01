@@ -47,8 +47,18 @@ export default function ScreeningTestPage() {
     useEffect(() => {
         fetch('/api/scales')
             .then(res => res.json())
-            .then(data => setScales(data))
-            .catch(err => console.error(err));
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setScales(data);
+                } else {
+                    console.error('Dữ liệu scales không phải là mảng:', data);
+                    setScales([]);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                setScales([]);
+            });
 
         fetch('/api/auth/me')
             .then(res => res.json())

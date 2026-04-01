@@ -11,7 +11,12 @@ export default function Navbar() {
     const [notifications, setNotifications] = useState<any[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         const fetchUser = () => {
@@ -33,10 +38,13 @@ export default function Navbar() {
             fetch('/api/notifications')
                 .then(res => res.json())
                 .then(data => {
-                    if (data.notifications) {
+                    if (data && Array.isArray(data.notifications)) {
                         setNotifications(data.notifications);
                         const unreadArr = data.notifications.filter((n: any) => !n.is_read).length;
                         setUnreadCount(unreadArr + (data.unreadMessagesCount || 0));
+                    } else {
+                        setNotifications([]);
+                        setUnreadCount(data.unreadMessagesCount || 0);
                     }
                 })
                 .catch(err => console.error(err));
@@ -145,7 +153,9 @@ export default function Navbar() {
                                                         }}>
                                                             <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-main)' }}>{notif.content}</p>
                                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(notif.created_at).toLocaleString('vi-VN')}</span>
+                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                                    {isMounted ? new Date(notif.created_at).toLocaleString('vi-VN') : 'Đang tải...'}
+                                                                </span>
                                                                 {notif.link && (
                                                                     <Link href={notif.link} onClick={() => setShowNotifications(false)} style={{ fontSize: '0.8rem', color: '#818cf8' }}>
                                                                         Xem chi tiết
