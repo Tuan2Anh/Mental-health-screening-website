@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
+import { pusherServer } from '@/lib/pusherServer';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'psycho-secret-key-123';
 
@@ -15,9 +16,26 @@ export async function POST(request: Request) {
         const decoded: any = jwt.verify(token.value, JWT_SECRET);
         const myUserId = decoded.userId;
 
-        const { receiverId, content } = await request.json();
+        const { receiverId, content, isCallSignal, isTranscriptPart } = await request.json();
 
         if (!receiverId || !content) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+
+        const channelName = `chat-${[myUserId, parseInt(receiverId)].sort((a: number, b: number) => a - b).join('-')}`;
+        
+        // Handle specialized call signals
+        if (isCallSignal && content === '__CALL_ENDED__') {
+            await pusherServer.trigger(channelName, 'end-call', { sender_id: myUserId });
+            return NextResponse.json({ success: true, signal: 'end-call' });
+        }
+
+        // Handle real-time transcription signals
+        if (isTranscriptPart) {
+            await pusherServer.trigger(channelName, 'transcript-signal', { 
+                sender_id: myUserId, 
+                text: content 
+            });
+            return NextResponse.json({ success: true, signal: 'transcript-sent' });
+        }
 
         const message = await prisma.message.create({
             data: {
@@ -33,7 +51,16 @@ export async function POST(request: Request) {
             select: { full_name: true }
         });
 
-        // Check if there is already an unread "new message" notification
+        // Trigger Pusher real-time event
+        await pusherServer.trigger(channelName, 'new-message', {
+            message_id: message.message_id,
+            sender_id: message.sender_id,
+            receiver_id: message.receiver_id,
+            content: message.content,
+            created_at: message.created_at,
+        });
+
+        // Create notification (only if no unread notification exists)
         const existingNotif = await prisma.notification.findFirst({
             where: {
                 user_id: parseInt(receiverId),
@@ -51,11 +78,6 @@ export async function POST(request: Request) {
                 }
             });
         }
-
-        // Note: For real-time, this should trigger a WebSocket event.
-        // For a minimal implementation without setting up a custom socket server for Next.js, 
-        // polling is sufficient, but using a custom NodeJS logic or third party (Pusher) is ideal for "real time".
-        // Let's keep it simple for now as DB layer.
 
         return NextResponse.json(message);
     } catch (error) {

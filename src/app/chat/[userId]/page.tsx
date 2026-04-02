@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, User as UserIcon, ArrowLeft, Zap, ZapOff, Video, VideoOff, PhoneOff, Mic, MicOff, Maximize2, Minimize2, FileText, Download } from 'lucide-react';
+import { Send, User as UserIcon, ArrowLeft, Video, VideoOff, PhoneOff, Mic, MicOff, FileText, Download, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import type Peer from 'peerjs';
 import toast from 'react-hot-toast';
+import PusherJS from 'pusher-js';
 
 export default function ChatPage({ params }: { params: { userId: string } }) {
     const router = useRouter();
@@ -15,13 +16,14 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
     const [myUser, setMyUser] = useState<any>(null);
     const [otherUser, setOtherUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [isP2PConnected, setIsP2PConnected] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
-    const lastMessageCountRef = useRef(0);
+    const transcriptRef = useRef<HTMLDivElement>(null);
 
+    // Video call state
     const peerRef = useRef<Peer | null>(null);
-    const connRef = useRef<any>(null);
     const [isCalling, setIsCalling] = useState(false);
+    const [showCallOverlay, setShowCallOverlay] = useState(false); // Thêm state quản lý overlay riêng biệt
     const [callIncoming, setCallIncoming] = useState<any>(null);
     const [activeCall, setActiveCall] = useState<any>(null);
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -30,815 +32,567 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [transcript, setTranscript] = useState<string>('');
     const [isTranscribing, setIsTranscribing] = useState(false);
-    
+    const [isProcessing, setIsProcessing] = useState(false);
+    const tempTranscriptRef = useRef<string>('');
+
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const localStreamRef = useRef<MediaStream | null>(null);
+    const myUserRef = useRef<any>(null);
+    const isCallingRef = useRef(false);
     const recognitionRef = useRef<any>(null);
-    const transcriptRef = useRef<HTMLDivElement>(null);
-    const currentStreamRef = useRef<MediaStream | null>(null);
+    const restartTimerRef = useRef<any>(null);
+    const lastInterimRef = useRef('');
+    const lastCommitTimeRef = useRef<number>(0);
+    const lastCommitRoleRef = useRef<string>('');
 
+    useEffect(() => { myUserRef.current = myUser; }, [myUser]);
+    useEffect(() => { isCallingRef.current = isCalling; }, [isCalling]);
+
+    // --- Auth & Env Check ---
     useEffect(() => {
-        // Fetch current user
-        fetch('/api/auth/me')
-            .then(res => res.json())
-            .then(data => {
-                if (!data.user) {
-                    router.push('/login');
-                } else {
-                    setMyUser(data.user);
-                    fetchMessages();
-                }
-            });
+        // Log danh sách thiết bị để hỗ trợ debug
+        navigator.mediaDevices?.enumerateDevices().then(devices => {
+            console.log('[Media] Danh sách phần cứng:', devices.map(d => `${d.kind}: ${d.label || 'Không tên'}`));
+        }).catch(err => console.error('[Media] Không thể lấy danh sách thiết bị:', err));
 
-        return () => {
-            if (peerRef.current) {
-                console.log('[WebRTC] Component unmounting, destroying peer.');
-                peerRef.current.destroy();
-                peerRef.current = null;
-            }
-        };
+        // Kiểm tra biến môi trường để tránh lỗi JSON.parse "undefined"
+        if (!process.env.NEXT_PUBLIC_PUSHER_KEY || !process.env.NEXT_PUBLIC_PUSHER_CLUSTER) {
+            console.error('[Config] Thiếu biến môi trường Pusher!');
+            toast.error('Lỗi cấu hình hệ thống (Pusher)!');
+        }
+
+        fetch('/api/auth/me').then(res => {
+            if (!res.ok) throw new Error('Network response was not ok');
+            return res.json();
+        }).then(data => {
+            if (!data.user) router.push('/login');
+            else setMyUser(data.user);
+        }).catch((err) => {
+            console.error('[Auth] Lỗi fetch user:', err);
+            toast.error('Lỗi kết nối cơ sở dữ liệu hoặc phiên làm việc hết hạn!');
+        });
     }, [router]);
 
-    // Initialize WebRTC Peer
+    // --- Pusher ---
     useEffect(() => {
-        if (!myUser || typeof window === 'undefined') return;
-
-        let isDestroyed = false;
-
-        let isInitializing = false;
-        const initPeer = async () => {
-            if (isInitializing || !myUser?.user_id) return;
-            isInitializing = true;
-
-            const { Peer } = await import('peerjs');
-            
-            const myPeerId = `psycho-app-user-${myUser.user_id}`;
-            console.log(`[WebRTC] Init for User ${myUser.user_id}, ID: ${myPeerId}`);
-
-            if (peerRef.current && !peerRef.current.destroyed) {
-                isInitializing = false;
-                return;
-            }
-
-            const peer = new Peer(myPeerId, {
-                debug: 0, 
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' },
-                    ]
+        if (!myUser?.user_id) return;
+        fetchMessages();
+        const pusher = new PusherJS(process.env.NEXT_PUBLIC_PUSHER_KEY!, { cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER! });
+        const channelName = `chat-${[myUser.user_id, otherUserId].sort((a: number, b: number) => a - b).join('-')}`;
+        const channel = pusher.subscribe(channelName);
+        channel.bind('pusher:subscription_succeeded', () => setIsConnected(true));
+        channel.bind('new-message', (data: any) => {
+            setMessages(prev => (prev.find(m => m.message_id === data.message_id) ? prev : [...prev, data]));
+        });
+        channel.bind('end-call', () => {
+            console.log('[Pusher] Nhận được tín hiệu kết thúc cuộc gọi từ đối phương');
+            endCallLocally(false); 
+        });
+        channel.bind('transcript-signal', (data: any) => {
+            if (data.sender_id !== myUserRef.current?.user_id) {
+                console.log('[Pusher] Nhận hội thoại:', data.text);
+                // Nếu là nối tiếp câu thì không xuống dòng
+                if (data.isJoining) {
+                    tempTranscriptRef.current = tempTranscriptRef.current.trimEnd() + ' ' + data.text + '\n';
+                } else {
+                    tempTranscriptRef.current += data.text + '\n';
                 }
+            }
+        });
+        return () => { pusher.unsubscribe(channelName); pusher.disconnect(); };
+    }, [myUser?.user_id, otherUserId]);
+
+    // --- PeerJS ---
+    useEffect(() => {
+        if (!myUser?.user_id || typeof window === 'undefined') return;
+        const initPeer = async () => {
+            const { Peer } = await import('peerjs');
+            const peer = new Peer(`psycho-app-user-${myUser.user_id}`, {
+                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
             });
             peerRef.current = peer;
-
-            // Release ID on close
-            const cleanup = () => { if (peerRef.current) peerRef.current.destroy(); };
-            window.addEventListener('beforeunload', cleanup);
-
-            peer.on('open', (id) => {
-                isInitializing = false;
-                if (isDestroyed) {
-                    peer.destroy();
-                    return;
-                }
-                console.log('[WebRTC] Signaling server opened. ID:', id);
-                connectToPeer(otherUserId);
-            });
-
-            // Re-try logic
-            const retryInterval = setInterval(() => {
-                if (!isP2PConnected && !isDestroyed && peer.open) {
-                    connectToPeer(otherUserId);
-                }
-            }, 3000);
-            setTimeout(() => clearInterval(retryInterval), 30000);
-
-            peer.on('connection', (conn) => {
-                console.log('[WebRTC] Incoming connection from:', conn.peer);
-                setupConnection(conn);
-            });
-
-            peer.on('disconnected', () => {
-                console.log('[WebRTC] Disconnected.');
-                setIsP2PConnected(false);
-                if (!isDestroyed && peerRef.current && !peerRef.current.destroyed) {
-                    peerRef.current.reconnect();
-                }
-            });
-
-            peer.on('error', (err: any) => {
-                if (err.type === 'peer-unavailable') {
-                    console.warn('[WebRTC] Peer is currently offline:', otherUserId);
-                } else {
-                    console.error('[WebRTC] Error:', err.type, err);
-                }
-                setIsP2PConnected(false);
-                isInitializing = false;
-
-                if (err.type === 'unavailable-id' && !isDestroyed) {
-                    console.log('[WebRTC] ID taken, waiting for server to release...');
-                    setTimeout(() => {
-                        if (peerRef.current) {
-                            peerRef.current.destroy();
-                            peerRef.current = null;
-                        }
-                        if (!isDestroyed) initPeer();
-                    }, 3000); // 3 seconds cooldown
-                }
-            });
-
-            // Handle incoming calls
             peer.on('call', (call) => {
-                console.log('[WebRTC] Incoming call from:', call.peer);
+                console.log('[Peer] Nhận được cuộc gọi đến từ:', call.peer);
                 setCallIncoming(call);
             });
+            peer.on('error', (err) => {
+                console.error('[Peer] Lỗi kết nối:', err.type, err.message);
+                if (err.type === 'peer-unavailable') toast.error('Người nhận hiện không trực tuyến hoặc lỗi kết nối.');
+                else if (err.type === 'unavailable-id') console.warn('[Peer] ID này đang được sử dụng.');
+            });
+            peer.on('disconnected', () => {
+                console.warn('[Peer] Đã mất kết nối tới máy chủ, đang thử kết nối lại...');
+                peer.reconnect();
+            });
         };
-
         initPeer();
+        return () => { if (peerRef.current) peerRef.current.destroy(); };
+    }, [myUser?.user_id]);
 
-        return () => {
-            isDestroyed = true;
-            if (peerRef.current) {
-                peerRef.current.destroy();
-                peerRef.current = null;
+    const sendTranscriptSignal = async (text: string, isJoining = false) => {
+        if (!text.trim()) return;
+        try {
+            await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    receiverId: otherUserId, 
+                    content: text, 
+                    isTranscriptPart: true,
+                    isJoining: isJoining // Gắn cờ để bên nhận biết có nên xuống dòng hay không
+                })
+            });
+        } catch (e) {}
+    };
+
+    // --- Advanced Speech Recognition ---
+    useEffect(() => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) return;
+
+        const startSpeechEngine = () => {
+            if (!isCallingRef.current || isMuted) return;
+            
+            // Dọn dẹp bản cũ nếu còn
+            if (recognitionRef.current) {
+                try { 
+                    recognitionRef.current.onend = null;
+                    recognitionRef.current.stop(); 
+                } catch(e) {}
             }
+
+            console.log('[Speech] Khởi tạo engine mới...');
+            const rec = new SpeechRecognition();
+            recognitionRef.current = rec;
+            rec.lang = 'vi-VN';
+            rec.continuous = true; 
+            rec.interimResults = true; // Giữ true để có trải nghiệm mượt mà nhưng xử lý logic ghép nối
+
+            rec.onstart = () => { 
+                setIsTranscribing(true); 
+                console.log('[Speech] 🔴 Thu âm...'); 
+            };
+            
+            rec.onresult = (e: any) => {
+                let interim = '';
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    const text = e.results[i][0].transcript;
+                    if (e.results[i].isFinal) {
+                        const now = Date.now();
+                        const timeDiff = now - lastCommitTimeRef.current;
+                        const role = myUserRef.current?.role || 'user';
+                        const prefix = role === 'expert' ? '(BS): ' : '(BN): ';
+                        
+                        // Nếu cùng 1 người nói và cách nhau dưới 3s thì gộp vào
+                        if (role === lastCommitRoleRef.current && timeDiff < 3000) {
+                            tempTranscriptRef.current = tempTranscriptRef.current.trimEnd() + ' ' + text.trim() + '\n';
+                            sendTranscriptSignal(text.trim(), true);
+                        } else {
+                            const formatted = prefix + text.trim();
+                            tempTranscriptRef.current += formatted + '\n';
+                            sendTranscriptSignal(formatted, false);
+                        }
+                        
+                        lastCommitTimeRef.current = now;
+                        lastCommitRoleRef.current = role;
+                        lastInterimRef.current = '';
+                    } else {
+                        interim = text;
+                    }
+                }
+                lastInterimRef.current = interim;
+            };
+
+            rec.onerror = (err: any) => {
+                if (err.error === 'aborted') return;
+                setIsTranscribing(false);
+            };
+
+            rec.onend = () => {
+                setIsTranscribing(false);
+                if (lastInterimRef.current) {
+                    const now = Date.now();
+                    const timeDiff = now - lastCommitTimeRef.current;
+                    const role = myUserRef.current?.role || 'user';
+                    const prefix = role === 'expert' ? '(BS): ' : '(BN): ';
+
+                    if (role === lastCommitRoleRef.current && timeDiff < 3000) {
+                        tempTranscriptRef.current = tempTranscriptRef.current.trimEnd() + ' ' + lastInterimRef.current.trim() + '\n';
+                        sendTranscriptSignal(lastInterimRef.current.trim(), true);
+                    } else {
+                        const formatted = prefix + lastInterimRef.current.trim();
+                        tempTranscriptRef.current += formatted + '\n';
+                        sendTranscriptSignal(formatted, false);
+                    }
+                    lastCommitTimeRef.current = now;
+                    lastCommitRoleRef.current = role;
+                    lastInterimRef.current = '';
+                }
+
+                // Với continuous: true, onend chỉ gọi khi có lỗi hoặc im lặng quá lâu
+                if (isCallingRef.current && !isMuted) {
+                    clearTimeout(restartTimerRef.current);
+                    restartTimerRef.current = setTimeout(() => {
+                        console.log('[Speech] Đang khôi phục phiên thu âm...');
+                        startSpeechEngine();
+                    }, 2000);
+                }
+            };
+
+            try { rec.start(); } catch(e) { console.warn('[Speech] Lỗi khởi động:', e); }
         };
-    }, [myUser, otherUserId]);
 
-    const connectToPeer = async (targetId: number) => {
-        if (!peerRef.current || peerRef.current.destroyed || !peerRef.current.open) return;
-        if (isP2PConnected || (connRef.current && connRef.current.open)) return;
-
-        const targetPeerId = `psycho-app-user-${targetId}`;
-        // Only log connection attempts if not already successfully connected
-        if (!isP2PConnected) {
-            console.log('[WebRTC] Attempting P2P connection to:', targetPeerId);
+        if (isCalling && myUser && !isMuted) {
+            const timer = setTimeout(() => startSpeechEngine(), 1500);
+            return () => {
+                clearTimeout(timer);
+                clearTimeout(restartTimerRef.current);
+                if (recognitionRef.current) {
+                    recognitionRef.current.onend = null;
+                    try { recognitionRef.current.stop(); } catch(e) {}
+                    recognitionRef.current = null;
+                }
+            };
         }
         
-        try {
-            const conn = peerRef.current.connect(targetPeerId);
-            setupConnection(conn);
-        } catch (err) {
-            console.error('[WebRTC] Connect failed:', err);
-        }
-    };
-
-    const setupConnection = (conn: any) => {
-        if (connRef.current && connRef.current.open && connRef.current.peer === conn.peer) return;
-
-        connRef.current = conn;
-        
-        conn.on('open', () => {
-            console.log('[WebRTC] Connected established with:', conn.peer);
-            setIsP2PConnected(true);
-        });
-
-        conn.on('data', (data: any) => {
-            console.log('[WebRTC] Data:', data);
-            if (data.type === 'chat') {
-                setMessages(prev => {
-                    if (prev.find(m => m.message_id === data.msg.message_id)) return prev;
-                    return [...prev, data.msg];
-                });
-            } else if (data.type === 'transcript') {
-                // Doctor receives transcripts from anyone, User might also receive for later
-                setTranscript(prev => prev + data.text);
+        return () => {
+            clearTimeout(restartTimerRef.current);
+            if (recognitionRef.current) {
+                recognitionRef.current.onend = null;
+                try { recognitionRef.current.stop(); } catch(e) {}
+                recognitionRef.current = null;
             }
-        });
+            setIsTranscribing(false);
+        };
+    }, [isCalling, myUser?.user_id, isMuted]);
 
-        conn.on('close', () => {
-            console.log('[WebRTC] Connection closed.');
-            setIsP2PConnected(false);
-            connRef.current = null;
-        });
+    const fetchMessages = async () => {
+        const res = await fetch(`/api/messages/${otherUserId}`);
+        if (res.ok) { 
+            const data = await res.json(); 
+            setMessages(data.messages); 
+            setOtherUser(data.otherUser); 
+        }
+        setLoading(false);
+    };
 
-        conn.on('error', (err: any) => {
-            console.error('[WebRTC] Conn Error:', err);
-            setIsP2PConnected(false);
-            connRef.current = null;
+    const handleSend = async (e: React.FormEvent) => {
+        e.preventDefault(); if (!newMessage.trim()) return;
+        const msg = newMessage; setNewMessage('');
+        await fetch('/api/messages', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ receiverId: otherUserId, content: msg })
         });
     };
 
-    // Video Call Functions
     const startCall = async () => {
-        if (!peerRef.current || !otherUser) return;
-        
+        if (isCalling) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            toast.error('Trình duyệt của bạn không hỗ trợ gọi Video/Audio.');
+            return;
+        }
+
         try {
-            console.log('[WebRTC] Starting call...');
+            tempTranscriptRef.current = ''; 
+            console.log('[Call] Đang yêu cầu quyền Media (Video + Audio)...');
+            
+            // Theo yêu cầu của người dùng, cuộc gọi bắt buộc phải có Micrô
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            currentStreamRef.current = stream;
-            setLocalStream(stream);
+            
+            console.log('[Call] Đã nhận được stream Media');
+            localStreamRef.current = stream; 
+            setLocalStream(stream); 
             setIsCalling(true);
+            setShowCallOverlay(true); 
+            const call = peerRef.current?.call(`psycho-app-user-${otherUserId}`, stream);
+            if (call) {
+                console.log('[Call] Đã gửi yêu cầu gọi tới:', otherUserId);
+                setupCall(call);
+            }
+        } catch (err: any) {
+            console.error('[Call] Lỗi Media hoặc Peer:', err);
+            let msg = 'Không truy cập được Camera/Micro';
             
-            const targetPeerId = `psycho-app-user-${otherUserId}`;
-            const call = peerRef.current.call(targetPeerId, stream);
-            console.log('[WebRTC] Calling target:', targetPeerId);
-            
-            setupCall(call);
-        } catch (err) {
-            console.error('[WebRTC] Failed to get local stream', err);
-            toast.error('Không thể truy cập camera/micro. Vui lòng kiểm tra quyền thiết bị.');
+            if (err.name === 'NotFoundError') {
+                msg = 'Máy tính của bạn hiện không tìm thấy Micrô hoặc Camera. Vui lòng kết nối đầy đủ thiết bị để bắt đầu cuộc gọi.';
+            } else if (err.name === 'NotAllowedError') {
+                msg = 'Bạn đã từ chối quyền truy cập Camera/Micro. Vui lòng bật lại trong cài đặt trình duyệt.';
+            } else if (err.name === 'NotReadableError') {
+                msg = 'Thiết bị đang bị chiếm dụng bởi ứng dụng khác (Zoom, Meet...).';
+            } else {
+                msg = `Yêu cầu hệ thống: Bản ghi âm bắt buộc phải có Micro. Lỗi: ${err.message || 'Unknown'}`;
+            }
+            toast.error(msg, { duration: 5000 });
         }
     };
 
     const answerCall = async () => {
         if (!callIncoming) return;
-        
         try {
-            console.log('[WebRTC] Answering call from:', callIncoming.peer);
+            tempTranscriptRef.current = '';
+            console.log('[Call] Đang trả lời cuộc gọi, yêu cầu quyền Media (Video + Audio)...');
+            
+            // Bắt buộc cả hai để đảm bảo chất lượng
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            currentStreamRef.current = stream;
-            setLocalStream(stream);
-            callIncoming.answer(stream);
-            setupCall(callIncoming);
-            setCallIncoming(null);
+
+            localStreamRef.current = stream; 
+            setLocalStream(stream); 
             setIsCalling(true);
-        } catch (err) {
-            console.error('[WebRTC] Failed to answer call', err);
-            toast.error('Không thể truy cập camera/micro. Vui lòng kiểm tra quyền thiết bị.');
+            setShowCallOverlay(true);
+            callIncoming.answer(stream); 
+            setupCall(callIncoming); 
+            setCallIncoming(null);
+        } catch (err: any) {
+            console.error('[Call] Lỗi khi nhận cuộc gọi:', err);
+            toast.error('Máy tính bạn thiếu cấu hình phần cứng (Micrô) và không thể bắt đầu cuộc gọi.');
         }
     };
 
     const setupCall = (call: any) => {
         setActiveCall(call);
-        
-        call.on('stream', (remoteStream: MediaStream) => {
-            console.log('[WebRTC] Received remote stream');
-            setRemoteStream(remoteStream);
-        });
-        
-        call.on('close', () => {
-            endCall();
-        });
-        
-        call.on('error', (err: any) => {
-            console.error('[WebRTC] Call Error:', err);
-            endCall();
-        });
+        call.on('stream', (s: MediaStream) => setRemoteStream(s));
+        call.on('close', () => endCallLocally(false));
+        call.on('error', () => endCallLocally(false));
     };
 
-    const endCall = () => {
-        console.log('[WebRTC] Ending call.');
-        // Automatically download transcript for doctor before closing if exists
-        if (myUser?.role === 'expert' && transcript) {
-            downloadTranscript();
+    const endCallLocally = async (sendSignal = true) => {
+        console.log('[Call] Đang dọn dẹp và kết thúc cuộc gọi...');
+        clearTimeout(restartTimerRef.current); // Xóa bộ hẹn giờ khởi động lại Speech
+        
+        if (sendSignal) {
+            // Gửi tín hiệu qua Pusher để bên kia cũng tự động tắt Cam/Mic
+            const channelName = `chat-${[myUser?.user_id, otherUserId].sort((a, b) => a - b).join('-')}`;
+            try {
+                await fetch('/api/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        receiverId: otherUserId, 
+                        content: '__CALL_ENDED__', // Tín hiệu đặc biệt
+                        isCallSignal: true 
+                    })
+                });
+                console.log('[Call] Đã gửi tín hiệu kết thúc tới đối phương');
+            } catch (e) {
+                console.error('[Call] Không thể gửi tín hiệu kết thúc:', e);
+            }
         }
 
         if (activeCall) {
-            activeCall.close();
-            setActiveCall(null);
+            try { activeCall.close(); } catch (e) {}
         }
-        if (currentStreamRef.current) {
-            currentStreamRef.current.getTracks().forEach(track => {
-                track.stop();
-                console.log(`[WebRTC] Track stopped: ${track.kind}`);
-            });
-            currentStreamRef.current = null;
-        }
-        setLocalStream(null);
-        setRemoteStream(null);
-        setIsCalling(false);
-        setCallIncoming(null);
-        setIsMuted(false);
-        setIsVideoOff(false);
-        stopTranscription();
-    };
-
-    const toggleMute = () => {
-        const stream = currentStreamRef.current;
-        if (stream) {
-            const audioTrack = stream.getAudioTracks()[0];
-            if (audioTrack) {
-                audioTrack.enabled = !audioTrack.enabled;
-                setIsMuted(!audioTrack.enabled);
-                console.log('[WebRTC] Audio enabled:', audioTrack.enabled);
-            }
-        }
-    };
-
-    const toggleVideo = () => {
-        const stream = currentStreamRef.current;
-        if (stream) {
-            const videoTrack = stream.getVideoTracks()[0];
-            if (videoTrack) {
-                videoTrack.enabled = !videoTrack.enabled;
-                setIsVideoOff(!videoTrack.enabled);
-                console.log('[WebRTC] Video enabled:', videoTrack.enabled);
-            }
-        }
-    };
-
-    // Speech to Text (Transcribing)
-    const startTranscription = () => {
-        if (typeof window === 'undefined' || !('webkitSpeechRecognition' in window)) {
-            console.log('STT not supported');
-            return;
-        }
-
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
         
-        recognition.lang = 'vi-VN';
-        recognition.continuous = true;
-        recognition.interimResults = true;
+        // Dừng toàn bộ tracks (Video/Audio) của local
+        if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach(t => {
+                try { t.stop(); t.enabled = false; } catch (e) {}
+            });
+        }
+        
+        // Dừng tracks của remote
+        if (remoteStream) {
+            remoteStream.getTracks().forEach(t => {
+                try { t.stop(); } catch (e) {}
+            });
+        }
 
-        recognition.onstart = () => {
-            setIsTranscribing(true);
-            console.log('Transcription started');
-        };
+        // Xóa srcObject của video elements để giải phóng hardware tốt hơn
+        if (localVideoRef.current) localVideoRef.current.srcObject = null;
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
 
-        recognition.onresult = (event: any) => {
-            // Only process if mic is NOT muted
-            if (currentStreamRef.current && !currentStreamRef.current.getAudioTracks()[0]?.enabled) {
-                return;
-            }
-
-            let finalChunk = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    finalChunk += event.results[i][0].transcript + ' ';
-                }
-            }
-            if (finalChunk && finalChunk.trim().length > 0) {
-                // If I'm the doctor, show my own transcript too
-                if (myUser?.role === 'expert') {
-                    setTranscript(prev => prev + `(Bác sĩ): ${finalChunk}\n`);
-                } else {
-                    // If I'm a patient, send my transcript to the doctor
-                    if (connRef.current && isP2PConnected) {
-                        connRef.current.send({ type: 'transcript', text: `(Bệnh nhân): ${finalChunk}\n` });
-                    }
-                }
-            }
-        };
-
-        recognition.onerror = (event: any) => {
-            console.error('STT Error', event.error);
-        };
-
-        recognition.onend = () => {
-            if (isTranscribing && isCalling) {
-                recognition.start(); // Keep it running
-            } else {
-                setIsTranscribing(false);
-            }
-        };
-
-        recognitionRef.current = recognition;
-        recognition.start();
-    };
-
-    const stopTranscription = () => {
-        setIsTranscribing(false);
+        // Dừng bộ nhận diện giọng nói ngay lập tức
         if (recognitionRef.current) {
-            recognitionRef.current.stop();
+            try { 
+                recognitionRef.current.onend = null; // Gỡ bỏ handler tránh hồi sinh
+                recognitionRef.current.stop(); 
+            } catch (e) {}
             recognitionRef.current = null;
         }
+
+        // Reset toàn bộ state về mặc định
+        localStreamRef.current = null; 
+        setLocalStream(null); 
+        setRemoteStream(null); 
+        setIsCalling(false); 
+        setCallIncoming(null); 
+        setActiveCall(null);
+        setIsMuted(false);
+        setIsVideoOff(false);
+        setIsTranscribing(false);
+
+        // Luôn bật chế độ biên dịch để người dùng xem kết quả
+        setIsProcessing(true);
+        setTimeout(() => {
+            if (tempTranscriptRef.current && tempTranscriptRef.current.trim()) {
+                setTranscript(tempTranscriptRef.current);
+                toast.success('Đã biên dịch xong cuộc trò chuyện!');
+            }
+            setIsProcessing(false);
+        }, 2500);
     };
 
     const downloadTranscript = () => {
         if (!transcript) return;
-
-        const header = `BIÊN BẢN TƯ VẤN TÂM LÝ\n` +
-                      `========================\n` +
-                      `Bác sĩ: ${myUser?.full_name}\n` +
-                      `Bệnh nhân: ${otherUser?.full_name || 'N/A'}\n` +
-                      `Ngày thực hiện: ${new Date().toLocaleString('vi-VN')}\n` +
-                      `------------------------\n\n` +
-                      `NỘI DUNG ĐÀM THOẠI:\n\n`;
-        
-        const fullContent = header + transcript;
-        const blob = new Blob([fullContent], { type: 'application/msword' });
+        const blob = new Blob([transcript], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `BienBan_TuVan_${otherUser?.full_name?.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.doc`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Bien_ban_tu_van_${otherUser?.full_name || 'BS'}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
 
-    useEffect(() => {
-        if (isCalling) {
-            startTranscription();
-        }
-        return () => stopTranscription();
-    }, [isCalling]);
+    useEffect(() => { if (messagesContainerRef.current) messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight; }, [messages]);
+    useEffect(() => { if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream; }, [localStream]);
+    useEffect(() => { if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream; }, [remoteStream]);
+    useEffect(() => { if (transcriptRef.current) transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight; }, [transcript]);
 
-    useEffect(() => {
-        if (localVideoRef.current && localStream) {
-            localVideoRef.current.srcObject = localStream;
-        }
-    }, [localStream]);
-
-    useEffect(() => {
-        if (remoteVideoRef.current && remoteStream) {
-            remoteVideoRef.current.srcObject = remoteStream;
-        }
-    }, [remoteStream]);
-
-    useEffect(() => {
-        if (transcriptRef.current) {
-            transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
-        }
-    }, [transcript]);
-
-    // Polling backup
-    useEffect(() => {
-        if (!myUser) return;
-        const interval = setInterval(fetchMessages, 5000);
-        return () => clearInterval(interval);
-    }, [myUser, otherUserId]);
-
-    // Auto-scroll logic (Internal scrolling only)
-    useEffect(() => {
-        if (messages.length > lastMessageCountRef.current && messagesContainerRef.current) {
-            const container = messagesContainerRef.current;
-            container.scrollTo({
-                top: container.scrollHeight,
-                behavior: 'smooth'
-            });
-        }
-        lastMessageCountRef.current = messages.length;
-    }, [messages]);
-
-    const fetchMessages = async () => {
-        try {
-            const res = await fetch(`/api/messages/${otherUserId}`);
-            if (res.ok) {
-                const data = await res.json();
-                setMessages(data.messages);
-                setOtherUser(data.otherUser);
-                if (!isP2PConnected) connectToPeer(otherUserId);
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSend = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newMessage.trim()) return;
-
-        const content = newMessage;
-        const msgObj = {
-            message_id: Date.now(),
-            sender_id: myUser.user_id,
-            receiver_id: otherUserId,
-            content: content,
-            created_at: new Date().toISOString()
-        };
-
-        setNewMessage('');
-        setMessages(prev => [...prev, msgObj]);
-
-        if (connRef.current && isP2PConnected) {
-            console.log('[WebRTC] Sending P2P...');
-            connRef.current.send({ type: 'chat', msg: msgObj });
-        }
-
-        try {
-            await fetch('/api/messages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    receiverId: otherUserId,
-                    content: content
-                })
-            });
-        } catch (error) {
-            console.error('Error sending', error);
-        }
-    };
-
-    if (loading) return <div className="container py-12 text-center" style={{ color: 'var(--text-main)' }}>Đang tải tin nhắn...</div>;
+    if (loading) return <div style={{ textAlign: 'center', padding: '100px', color: '#6366f1' }}>Đang tải phòng chat...</div>;
 
     return (
-        <div className="container" style={{ padding: '2rem 1rem', display: 'flex', justifyContent: 'center' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '800px', height: '80vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
-                
-                {/* Chat Header */}
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--surface)' }}>
-                    <Link href="/appointments" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
-                        <ArrowLeft size={24} />
-                    </Link>
-                    <div style={{ position: 'relative' }}>
-                        <div style={{ background: 'var(--background)', padding: '0.5rem', borderRadius: '50%', border: '1px solid var(--border)' }}>
-                            <UserIcon color="#818cf8" />
-                        </div>
-                        <div style={{
-                            position: 'absolute',
-                            bottom: 0,
-                            right: 0,
-                            width: 12,
-                            height: 12,
-                            background: isP2PConnected ? '#22c55e' : '#94a3b8',
-                            borderRadius: '50%',
-                            border: '2px solid var(--surface)'
-                        }}></div>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <strong style={{ fontSize: '1.2rem', display: 'block', color: 'var(--text-main)' }}>{otherUser ? otherUser.full_name : `Hộp Thư #${otherUserId}`}</strong>
-                        <span style={{ fontSize: '0.8rem', color: isP2PConnected ? '#22c55e' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                            {isP2PConnected ? (
-                                <><Zap size={12} fill="#22c55e" /> Kết nối trực tiếp</>
-                            ) : (
-                                <><ZapOff size={12} /> Đang kết nối...</>
-                            )}
-                        </span>
-                    </div>
-                    {isP2PConnected && !isCalling && (
-                        <button 
-                            onClick={startCall}
-                            style={{ 
-                                background: 'rgba(99, 102, 241, 0.1)', 
-                                border: 'none', 
-                                borderRadius: '0.5rem', 
-                                padding: '0.75rem', 
-                                color: 'var(--primary-color)', 
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem'
-                            }}
-                        >
-                            <Video size={20} />
-                            <span style={{ fontWeight: 600 }}>Facetime</span>
-                        </button>
-                    )}
-                </div>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '10px', height: '95vh', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, sans-serif' }}>
+            <style>{`
+                .btn-action { transition: all 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+                .btn-action:hover { transform: scale(1.1); opacity: 0.9; }
+                .btn-hangup { background: #ef4444 !important; }
+                .btn-hangup:hover { background: #dc2626 !important; }
+                .chat-msg { animation: fadeIn 0.3s ease-in; }
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+            `}</style>
 
-                {/* Chat Messages */}
-                <div 
-                    ref={messagesContainerRef}
-                    style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'var(--background)' }}
-                >
-                    {messages.length === 0 ? (
-                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: 'auto', marginBottom: 'auto' }}>
-                            Chưa có tin nhắn. Hãy gửi lời chào!
-                        </div>
-                    ) : (
-                        messages.map((msg: any) => {
-                            const isMe = msg.sender_id === myUser.user_id;
-                            return (
-                                <div key={msg.message_id} style={{
-                                    display: 'flex',
-                                    justifyContent: isMe ? 'flex-end' : 'flex-start',
-                                }}>
-                                    <div style={{
-                                        maxWidth: '70%',
-                                        padding: '0.75rem 1.25rem',
-                                        borderRadius: '1.5rem',
-                                        background: isMe ? 'linear-gradient(135deg, #6366f1, #818cf8)' : 'var(--surface)',
-                                        border: isMe ? 'none' : '1px solid var(--border)',
-                                        borderBottomRightRadius: isMe ? '0.25rem' : '1.5rem',
-                                        borderBottomLeftRadius: isMe ? '1.5rem' : '0.25rem',
-                                        boxShadow: isMe ? '0 4px 15px rgba(99, 102, 241, 0.3)' : '0 2px 4px rgba(0,0,0,0.05)',
-                                    }}>
-                                        <p style={{ margin: 0, lineHeight: 1.5, color: isMe ? 'white' : 'var(--text-main)' }}>{msg.content}</p>
-                                        <span style={{ fontSize: '0.7rem', color: isMe ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)', display: 'block', marginTop: '0.25rem', textAlign: isMe ? 'right' : 'left' }}>
-                                            {new Date(msg.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
+            {/* Header */}
+            <div style={{ background: 'white', padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid #eee', borderRadius: '12px 12px 0 0', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
+                <Link href="/appointments" style={{ color: '#64748b' }}><ArrowLeft size={22}/></Link>
+                <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '700', fontSize: '1.1rem', color: '#1e293b' }}>{otherUser?.full_name || 'Đang tải...'}</div>
+                    <div style={{ fontSize: '0.75rem', color: isConnected ? '#22c55e' : '#94a3b8' }}>● {isConnected ? 'Đang trực tuyến' : 'Đang kết nối...'}</div>
                 </div>
-
-                {/* Chat Input */}
-                <form onSubmit={handleSend} style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '1rem', background: 'var(--surface)' }}>
-                    <input
-                        type="text"
-                        value={newMessage}
-                        onChange={e => setNewMessage(e.target.value)}
-                        placeholder="Nhập tin nhắn..."
-                        style={{ flex: 1, padding: '1rem 1.5rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '2rem', color: 'var(--text-main)', outline: 'none' }}
-                    />
-                    <button type="submit" disabled={!newMessage.trim()} style={{
-                        background: 'linear-gradient(135deg, #6366f1, #818cf8)',
-                        border: 'none',
-                        borderRadius: '50%',
-                        width: '50px',
-                        height: '50px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        cursor: newMessage.trim() ? 'pointer' : 'not-allowed',
-                        opacity: newMessage.trim() ? 1 : 0.5
-                    }}>
-                        <Send size={20} style={{ marginLeft: '-2px' }} />
+                {!isCalling && (
+                    <button onClick={startCall} title="Bắt đầu video call" className="btn-action" style={{ background: '#6366f1', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', gap: '8px' }}>
+                        <Video size={18} /> Facetime
                     </button>
-                </form>
-
+                )}
             </div>
 
-            {/* Incoming Call Notification */}
+            {/* Messages */}
+            <div ref={messagesContainerRef} style={{ flex: 1, padding: '20px', overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {messages.map((msg: any) => {
+                    const isMe = msg.sender_id === myUser?.user_id;
+                    return (
+                        <div key={msg.message_id} className="chat-msg" style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', background: isMe ? '#6366f1' : 'white', color: isMe ? 'white' : '#1e293b', padding: '10px 16px', borderRadius: '15px', maxWidth: '75%', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', fontSize: '0.95rem' }}>
+                            {msg.content}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Input */}
+            <form onSubmit={handleSend} style={{ padding: '15px', background: 'white', display: 'flex', gap: '12px', borderTop: '1px solid #eee', borderRadius: '0 0 12px 12px' }}>
+                <input type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)} style={{ flex: 1, padding: '12px 18px', borderRadius: '25px', border: '1px solid #e2e8f0', outline: 'none', background: '#f8fafc' }} placeholder="Nhập tin nhắn..." />
+                <button type="submit" disabled={!newMessage.trim()} className="btn-action" style={{ background: '#6366f1', color: 'white', border: 'none', width: '45px', height: '45px', borderRadius: '50%' }}>
+                    <Send size={20} />
+                </button>
+            </form>
+
+            {/* Call Incoming */}
             {callIncoming && (
-                <div style={{
-                    position: 'fixed',
-                    top: '2rem',
-                    right: '2rem',
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '1rem',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-                    zIndex: 1000,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1rem',
-                    border: '1px solid var(--primary-color)',
-                    animation: 'slideIn 0.3s ease-out'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ background: 'var(--primary-color)', padding: '0.5rem', borderRadius: '50%' }}>
-                            <UserIcon color="white" />
-                        </div>
-                        <div>
-                            <div style={{ fontWeight: 600 }}>Cuộc gọi đến từ</div>
-                            <div style={{ color: 'var(--text-muted)' }}>{otherUser?.full_name || 'Người dùng'}</div>
+                <div style={{ position: 'fixed', top: '30px', right: '30px', background: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', zIndex: 1000, border: '2px solid #6366f1', width: '300px', animation: 'fadeIn 0.3s' }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ background: '#e0e7ff', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' }}><Video size={30} color="#6366f1"/></div>
+                        <p style={{ fontWeight: '700', marginBottom: '20px' }}>Cuộc gọi video đang đến...</p>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={answerCall} className="btn-action" style={{ flex: 1, background: '#22c55e', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '600' }}>Trả lời</button>
+                            <button onClick={() => setCallIncoming(null)} className="btn-action" style={{ flex: 1, background: '#f1f5f9', color: '#64748b', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '600' }}>Từ chối</button>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button onClick={answerCall} className="btn btn-primary" style={{ flex: 1, padding: '0.5rem' }}>Trả lời</button>
-                        <button onClick={() => setCallIncoming(null)} className="btn btn-outline" style={{ flex: 1, padding: '0.5rem', color: 'var(--error)' }}>Từ chối</button>
-                    </div>
-                </div>
+                </div>  
             )}
 
-            {/* Video Call Overlay */}
-            {isCalling && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    background: 'rgba(0,0,0,0.95)',
-                    zIndex: 2000,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden'
-                }}>
-                    <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: myUser?.role === 'expert' ? 'row' : 'column', height: '100%' }}>
-                        {/* Remote Video (Large Area) */}
-                        <div style={{ 
-                            flex: myUser?.role === 'expert' ? 3 : 1, 
-                            position: 'relative', 
-                            background: '#000', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            height: '100%',
-                            minHeight: 0
-                        }}>
-                            <video 
-                                ref={remoteVideoRef} 
-                                autoPlay 
-                                playsInline 
-                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                            />
-                            {!remoteStream && (
-                                <div style={{ position: 'absolute', color: 'white', textAlign: 'center' }}>
-                                    <div className="animate-pulse" style={{ fontSize: '1.2rem' }}>Đang kết nối hình ảnh...</div>
+            {/* Facetime Overlay */}
+            {showCallOverlay && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: '#0f172a', zIndex: 2000, display: 'flex' }}>
+                    <div style={{ flex: 3, position: 'relative', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {isCalling ? (
+                            <>
+                                <video ref={remoteVideoRef} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                <div style={{ position: 'absolute', top: '25px', right: '25px', width: '200px', height: '150px', borderRadius: '12px', overflow: 'hidden', border: '3px solid rgba(255,255,255,0.2)', boxShadow: '0 10px 15px rgba(0,0,0,0.3)' }}>
+                                    <video ref={localVideoRef} autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
                                 </div>
-                            )}
-                            
-                            {/* Local Video (Floating Overlay) */}
-                            <div style={{
-                                position: 'absolute',
-                                top: '1rem',
-                                right: '1rem',
-                                width: 'min(160px, 30%)',
-                                aspectRatio: '4/3',
-                                background: '#222',
-                                borderRadius: '0.5rem',
-                                overflow: 'hidden',
-                                border: '1px solid rgba(255,255,255,0.3)',
-                                boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
-                                zIndex: 10
-                            }}>
-                                <video 
-                                    ref={localVideoRef} 
-                                    autoPlay 
-                                    playsInline 
-                                    muted 
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
-                                />
-                            </div>
-
-                            {/* Call Controls Bar */}
-                            <div style={{
-                                position: 'absolute',
-                                bottom: '1.5rem',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                display: 'flex',
-                                gap: '1rem',
-                                padding: '0.8rem 1.5rem',
-                                background: 'rgba(255,255,255,0.15)',
-                                backdropFilter: 'blur(15px)',
-                                borderRadius: '3rem',
-                                border: '1px solid rgba(255,255,255,0.2)',
-                                zIndex: 20,
-                                flexWrap: 'nowrap'
-                            }}>
-                                <button onClick={toggleMute} style={{ background: isMuted ? '#ef4444' : 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '45px', height: '45px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-                                </button>
-                                <button onClick={toggleVideo} style={{ background: isVideoOff ? '#ef4444' : 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '45px', height: '45px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
-                                </button>
-                                <button onClick={endCall} style={{ background: '#ef4444', border: 'none', borderRadius: '50%', width: '45px', height: '45px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <PhoneOff size={20} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Transcript Panel (Expert Only) */}
-                        {myUser?.role === 'expert' && (
-                            <div style={{ 
-                                flex: 1, 
-                                background: 'white', 
-                                display: 'flex', 
-                                flexDirection: 'column',
-                                borderLeft: '1px solid var(--border)',
-                                minWidth: '300px'
-                            }}>
-                                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <FileText size={20} color="var(--primary-color)" />
-                                        <strong style={{ fontSize: '1.1rem' }}>Văn bản đàm thoại (AI)</strong>
-                                    </div>
-                                    <button 
-                                        onClick={downloadTranscript}
-                                        disabled={!transcript}
-                                        style={{ 
-                                            background: 'var(--primary-color)', 
-                                            color: 'white', 
-                                            border: 'none', 
-                                            padding: '0.4rem 0.8rem', 
-                                            borderRadius: '0.5rem', 
-                                            fontSize: '0.8rem', 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            gap: '0.4rem', 
-                                            cursor: transcript ? 'pointer' : 'not-allowed',
-                                            opacity: transcript ? 1 : 0.6
-                                        }}
-                                    >
-                                        <Download size={14} /> Xuất file .doc
+                                <div style={{ position: 'absolute', bottom: '40px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '20px', background: 'rgba(255,255,255,0.1)', padding: '15px 30px', borderRadius: '40px', backdropFilter: 'blur(10px)' }}>
+                                    <button onClick={() => { const t = localStream?.getAudioTracks()[0]; if(t) { t.enabled = !t.enabled; setIsMuted(!t.enabled); } }} title={isMuted ? "Bật Mic" : "Tắt Mic"} className="btn-action" style={{ width: '55px', height: '55px', borderRadius: '50%', border: 'none', background: isMuted ? '#ef4444' : 'rgba(255,255,255,0.2)', color:'white' }}>
+                                        {isMuted ? <MicOff size={24}/> : <Mic size={24}/>}
+                                    </button>
+                                    <button onClick={() => { const t = localStream?.getVideoTracks()[0]; if(t) { t.enabled = !t.enabled; setIsVideoOff(!t.enabled); } }} title={isVideoOff ? "Bật Camera" : "Tắt Camera"} className="btn-action" style={{ width: '55px', height: '55px', borderRadius: '50%', border: 'none', background: isVideoOff ? '#ef4444' : 'rgba(255,255,255,0.2)', color:'white' }}>
+                                        {isVideoOff ? <VideoOff size={24}/> : <Video size={24}/>}
+                                    </button>
+                                    <button onClick={() => endCallLocally()} title="Kết thúc cuộc gọi" className="btn-action btn-hangup" style={{ width: '55px', height: '55px', borderRadius: '50%', border: 'none', color:'white' }}>
+                                        <PhoneOff size={24}/>
                                     </button>
                                 </div>
-                                <div 
-                                    ref={transcriptRef}
-                                    style={{ 
-                                        flex: 1, 
-                                        padding: '1.5rem', 
-                                        overflowY: 'auto', 
-                                        background: '#f8fafc',
-                                        fontSize: '1rem',
-                                        lineHeight: '1.6',
-                                        color: 'var(--text-main)',
-                                        whiteSpace: 'pre-wrap'
-                                    }}
-                                >
-                                    {transcript || (
-                                        <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', marginTop: '2rem' }}>
-                                            {isTranscribing ? 'Đang lắng nghe và chuyển đổi văn bản...' : 'Chưa có nội dung đàm thoại.'}
-                                            <div style={{ fontSize: '0.8rem', marginTop: '1rem', color: '#94a3b8' }}>* Lưu ý: Nếu test trên cùng 1 thiết bị, micro sẽ thu âm từ cả 2 tab.</div>
-                                        </div>
-                                    )}
-                                    {transcript}
+                            </>
+                        ) : (
+                            <div style={{ color: 'white', textAlign: 'center' }}>
+                                <div style={{ background: '#22c55e', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                                    <PhoneOff size={40} color="white" />
                                 </div>
-                                <div style={{ padding: '1rem', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
-                                    <span style={{ fontSize: '0.8rem', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                        <div style={{ width: 8, height: 8, background: '#22c55e', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></div>
-                                        Hệ thống đang hoạt động
-                                    </span>
-                                </div>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Cuộc gọi đã kết thúc</h2>
+                                <p style={{ color: '#94a3b8', marginTop: '10px' }}>Kiểm tra biên bản tư vấn ở cột bên phải.</p>
+                                <button onClick={() => setShowCallOverlay(false)} className="btn-action" style={{ marginTop: '30px', background: 'white', color: '#0f172a', border: 'none', padding: '12px 30px', borderRadius: '10px', fontWeight: '700' }}>
+                                    Đóng màn hình cuộc gọi
+                                </button>
                             </div>
                         )}
                     </div>
+                    {/* Transcript Panel - Chỉ hiện cho Bác sĩ (Expert) */}
+                    {myUser?.role === 'expert' && (
+                        <div style={{ flex: 1, background: 'white', display: 'flex', flexDirection: 'column', borderLeft: '1px solid #e2e8f0', minWidth: '320px' }}>
+                            <div style={{ padding: '20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <FileText size={18} color="#6366f1"/>
+                                    <span style={{ fontWeight: '700', color: '#1e293b' }}>Biên bản tư vấn</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button onClick={() => { setTranscript(''); tempTranscriptRef.current = ''; }} title="Làm mới" className="btn-action" style={{ border: 'none', background: '#f1f5f9', padding: '6px', borderRadius: '6px' }}><RotateCcw size={16} color="#64748b"/></button>
+                                    <button onClick={downloadTranscript} title="Tải về .doc" disabled={!transcript} className="btn-action" style={{ border: 'none', background: '#6366f1', color:'white', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600' }}><Download size={16}/></button>
+                                </div>
+                            </div>
+                            <div ref={transcriptRef} style={{ flex: 1, padding: '20px', overflowY: 'auto', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155', whiteSpace: 'pre-wrap', background: '#fff', display: 'flex', flexDirection: 'column' }}>
+                                {isProcessing ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '15px', color: '#6366f1' }}>
+                                        <div className="animate-spin" style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#6366f1', borderRadius: '50%' }}></div>
+                                        <p style={{ fontWeight: '600', animation: 'pulse 1.5s infinite' }}>Hệ thống đang biên dịch cuộc hội thoại...</p>
+                                    </div>
+                                ) : transcript ? (
+                                    transcript
+                                ) : isTranscribing ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#ef4444', fontWeight: '600' }}>
+                                        <div style={{ width: '10px', height: '10px', background: '#ef4444', borderRadius: '50%', animation: 'pulse 1s infinite' }}></div>
+                                        🔴 Đang ghi âm nội dung cuộc hội thoại...
+                                    </div>
+                                ) : isCalling ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: '#94a3b8', textAlign: 'center' }}>
+                                        <div style={{ width: '10px', height: '10px', background: '#94a3b8', borderRadius: '50%' }}></div>
+                                        <span>Đang khởi động bộ thu âm...</span>
+                                        <span style={{ fontSize: '0.75rem' }}>(Vui lòng nói sau khi đèn đỏ hiện lên)</span>
+                                    </div>
+                                ) : (
+                                    <div style={{ color: '#94a3b8', textAlign: 'center', marginTop: '20px' }}>
+                                        Chưa có bản ghi âm nào. Biên bản sẽ xuất hiện sau khi kết thúc cuộc gọi.
+                                    </div>
+                                )}
+                            </div>
+                            <style>{`
+                                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+                                .animate-spin { animation: spin 1s linear infinite; }
+                                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                            `}</style>
+                        </div>
+                    )}
                 </div>
             )}
-
-            <style jsx>{`
-                @keyframes pulse {
-                    0% { transform: scale(0.95); opacity: 0.7; }
-                    50% { transform: scale(1.05); opacity: 1; }
-                    100% { transform: scale(0.95); opacity: 0.7; }
-                }
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-            `}</style>
         </div>
     );
 }
