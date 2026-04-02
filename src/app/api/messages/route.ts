@@ -16,7 +16,7 @@ export async function POST(request: Request) {
         const decoded: any = jwt.verify(token.value, JWT_SECRET);
         const myUserId = decoded.userId;
 
-        const { receiverId, content, isCallSignal, isTranscriptPart, isPeerDiscovery, sender_peer_id } = await request.json();
+        const { receiverId, content, isCallSignal, isTranscriptPart, isPeerDiscovery, sender_peer_id, isJoining } = await request.json();
 
         if (!receiverId || !content) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
@@ -46,9 +46,15 @@ export async function POST(request: Request) {
         if (isTranscriptPart) {
             await pusherServer.trigger(channelName, 'transcript-signal', { 
                 sender_id: myUserId, 
-                text: content 
+                text: content,
+                isJoining: isJoining === true
             });
             return NextResponse.json({ success: true, signal: 'transcript-sent' });
+        }
+
+        // Final safety: if any special signal reached here, don't save to DB
+        if (isCallSignal || isTranscriptPart || isPeerDiscovery) {
+            return NextResponse.json({ success: true, signal: 'signal-ignored' });
         }
 
         const message = await prisma.message.create({

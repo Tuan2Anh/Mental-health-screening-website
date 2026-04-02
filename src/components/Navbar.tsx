@@ -171,15 +171,17 @@ export default function Navbar() {
                                 </div>
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: '#f8fafc', border: '1px solid var(--border)' }}>
+                                <Link href="/profile" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: '#f8fafc', border: '1.5px solid var(--border)', transition: 'all 0.2s ease' }}>
                                         {user.avatar ? (
                                             <img src={user.avatar} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
                                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <User size={16} color="var(--text-muted)" />
+                                                <User size={18} color="var(--text-muted)" />
                                             </div>
                                         )}
                                     </div>
+                                </Link>
                                     <span style={{ color: 'var(--text-muted)' }}>Chào, <Link href="/profile" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600 }}>{user.full_name || user.name}</Link></span>
                                 </div>
                                 <button

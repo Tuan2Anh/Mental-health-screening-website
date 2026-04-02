@@ -23,11 +23,41 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing necessary fields' }, { status: 400 });
         }
 
+        const appointmentDate = new Date(time);
+        const now = new Date();
+
+        // 1. Kiểm tra không được đặt lịch ở quá khứ
+        if (appointmentDate < now) {
+            return NextResponse.json({ error: 'Không thể đặt lịch hẹn ở quá khứ. Vui lòng chọn thời gian khác.' }, { status: 400 });
+        }
+
+        // 2. Kiểm tra trùng lịch (Overlap check - giả định mỗi ca 45 phút)
+        const fortyFiveMinutes = 45 * 60 * 1000;
+        const startTimeLimit = new Date(appointmentDate.getTime() - fortyFiveMinutes);
+        const endTimeLimit = new Date(appointmentDate.getTime() + fortyFiveMinutes);
+
+        const overlapping = await prisma.appointment.findFirst({
+            where: {
+                expert_id: parseInt(expertId),
+                appointment_time: {
+                    gt: startTimeLimit,
+                    lt: endTimeLimit
+                },
+                status: { not: 'cancelled' } // Không tính các lịch đã hủy
+            }
+        });
+
+        if (overlapping) {
+            return NextResponse.json({ 
+                error: 'Bác sĩ đã có lịch hẹn khác trong khoảng thời gian này. Vui lòng chọn khung giờ khác (cách ít nhất 45 phút).' 
+            }, { status: 400 });
+        }
+
         const appointment = await prisma.appointment.create({
             data: {
                 user_id: userId,
                 expert_id: parseInt(expertId),
-                appointment_time: new Date(time),
+                appointment_time: appointmentDate,
                 type: type, // online, offline
                 status: 'pending'
             }

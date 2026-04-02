@@ -49,6 +49,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
     const [otherPeerId, setOtherPeerId] = useState<string | null>(null);
     const callIncomingRef = useRef<any>(null);
     const isWaitingForPeerToAnswerRef = useRef(false);
+    const isEndingCallRef = useRef(false);
 
     useEffect(() => { myUserRef.current = myUser; }, [myUser]);
     useEffect(() => { isCallingRef.current = isCalling; }, [isCalling]);
@@ -481,8 +482,12 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
     };
 
     const endCallLocally = async (sendSignal = true) => {
+        if (isEndingCallRef.current) return;
+        isEndingCallRef.current = true;
+        
         console.log('[Call] Đang dọn dẹp và kết thúc cuộc gọi...');
-        clearTimeout(restartTimerRef.current); // Xóa bộ hẹn giờ khởi động lại Speech
+        setIsCalling(false); 
+        clearTimeout(restartTimerRef.current);
         
         if (sendSignal) {
             // Gửi tín hiệu qua Pusher để bên kia cũng tự động tắt Cam/Mic
@@ -538,7 +543,6 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
         localStreamRef.current = null; 
         setLocalStream(null); 
         setRemoteStream(null); 
-        setIsCalling(false); 
         setCallIncoming(null); 
         setActiveCall(null);
         setIsMuted(false);
@@ -554,10 +558,12 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
                     toast.success('Đã biên dịch xong cuộc trò chuyện!');
                 }
                 setIsProcessing(false);
+                isEndingCallRef.current = false;
             }, 2500);
         } else {
             // Đối với Bệnh nhân: Thoát hẳn màn hình cuộc gọi ngay lập tức
             setShowCallOverlay(false);
+            isEndingCallRef.current = false;
         }
     };
 
@@ -608,13 +614,15 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
 
             {/* Messages */}
             <div ref={messagesContainerRef} style={{ flex: 1, padding: '20px', overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {messages.map((msg: any) => {
-                    const isMe = msg.sender_id === myUser?.user_id;
-                    return (
-                        <div key={msg.message_id} className="chat-msg" style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', background: isMe ? '#6366f1' : 'white', color: isMe ? 'white' : '#1e293b', padding: '10px 16px', borderRadius: '15px', maxWidth: '75%', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', fontSize: '0.95rem' }}>
-                            {msg.content}
-                        </div>
-                    );
+                {messages
+                    .filter((m: any) => !m.content.startsWith('psycho-user-') && !m.content.startsWith('(BS):') && !m.content.startsWith('(BN):'))
+                    .map((msg: any) => {
+                        const isMe = msg.sender_id === myUser?.user_id;
+                        return (
+                            <div key={msg.message_id} className="chat-msg" style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', background: isMe ? '#6366f1' : 'white', color: isMe ? 'white' : '#1e293b', padding: '10px 16px', borderRadius: '15px', maxWidth: '75%', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', fontSize: '0.95rem' }}>
+                                {msg.content}
+                            </div>
+                        );
                 })}
             </div>
 
