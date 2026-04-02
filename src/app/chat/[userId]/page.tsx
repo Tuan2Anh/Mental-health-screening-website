@@ -45,9 +45,14 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
     const lastInterimRef = useRef('');
     const lastCommitTimeRef = useRef<number>(0);
     const lastCommitRoleRef = useRef<string>('');
+    const myPeerIdRef = useRef<string>('');
+    const [otherPeerId, setOtherPeerId] = useState<string | null>(null);
+    const callIncomingRef = useRef<any>(null);
+    const isWaitingForPeerToAnswerRef = useRef(false);
 
     useEffect(() => { myUserRef.current = myUser; }, [myUser]);
     useEffect(() => { isCallingRef.current = isCalling; }, [isCalling]);
+    useEffect(() => { callIncomingRef.current = callIncoming; }, [callIncoming]);
 
     // --- Auth & Env Check ---
     useEffect(() => {
@@ -85,14 +90,34 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
         channel.bind('new-message', (data: any) => {
             setMessages(prev => (prev.find(m => m.message_id === data.message_id) ? prev : [...prev, data]));
         });
+        channel.bind('peer-discovery', (data: any) => {
+            if (data.sender_id !== myUserRef.current?.user_id) {
+                setOtherPeerId(data.peer_id);
+            }
+        });
         channel.bind('end-call', () => {
             console.log('[Pusher] Nhận được tín hiệu kết thúc cuộc gọi từ đối phương');
             endCallLocally(false); 
         });
+        channel.bind('incoming-call', (data: any) => {
+            if (data.sender_id !== myUserRef.current?.user_id) {
+                console.log('[Pusher] Tín hiệu gọi đến từ:', data.sender_id);
+                if (!isCallingRef.current && !callIncomingRef.current) {
+                    setCallIncoming({ isPusherSignal: true, peerId: data.sender_peer_id });
+                }
+            }
+        });
+        channel.bind('call-rejected', (data: any) => {
+            if (data.sender_id !== myUserRef.current?.user_id) {
+                console.log('[Pusher] Đối phương đã từ chối cuộc gọi');
+                setCallIncoming(null);
+                toast('Đối phương đã từ chối cuộc gọi.');
+                endCallLocally(false);
+            }
+        });
         channel.bind('transcript-signal', (data: any) => {
             if (data.sender_id !== myUserRef.current?.user_id) {
                 console.log('[Pusher] Nhận hội thoại:', data.text);
-                // Nếu là nối tiếp câu thì không xuống dòng
                 if (data.isJoining) {
                     tempTranscriptRef.current = tempTranscriptRef.current.trimEnd() + ' ' + data.text + '\n';
                 } else {
@@ -103,31 +128,93 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
         return () => { pusher.unsubscribe(channelName); pusher.disconnect(); };
     }, [myUser?.user_id, otherUserId]);
 
-    // --- PeerJS ---
+    // --- PeerJS với Định danh linh hoạt ---
     useEffect(() => {
         if (!myUser?.user_id || typeof window === 'undefined') return;
+        
         const initPeer = async () => {
             const { Peer } = await import('peerjs');
-            const peer = new Peer(`psycho-app-user-${myUser.user_id}`, {
-                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
+            // Tạo ID có suffix ngẫu nhiên để tránh lỗi "ID is taken"
+            const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const myId = `psycho-user-${myUser.user_id}-${randomSuffix}`;
+            myPeerIdRef.current = myId;
+
+            const peer = new Peer(myId, {
+                host: '0.peerjs.com',
+                port: 443,
+                secure: true,
+                config: { 
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }, 
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' }
+                    ] 
+                }
             });
             peerRef.current = peer;
-            peer.on('call', (call) => {
-                console.log('[Peer] Nhận được cuộc gọi đến từ:', call.peer);
-                setCallIncoming(call);
+
+            peer.on('open', (id) => {
+                console.log('[Peer] Sẵn sàng với ID động:', id);
+                setIsConnected(true);
+                // Phát tín hiệu cho đối phương biết ID của mình
+                broadcastPeerId();
             });
+
+            peer.on('call', (call) => {
+                console.log('[Peer] Luồng Peer đã tới từ:', call.peer);
+                
+                // CƠ CHẾ AUTO-ANSWER: Nếu ta đã chuẩn bị sẵn stream và đang đợi (do bấm Answer từ tín hiệu Pusher trước)
+                if (isWaitingForPeerToAnswerRef.current && localStreamRef.current) {
+                    console.log('[Call] Khớp lệnh! Đang trả lời tự động cuộc gọi từ:', call.peer);
+                    call.answer(localStreamRef.current);
+                    setupCall(call);
+                    isWaitingForPeerToAnswerRef.current = false;
+                } else {
+                    setCallIncoming(call);
+                }
+            });
+
             peer.on('error', (err) => {
                 console.error('[Peer] Lỗi kết nối:', err.type, err.message);
-                if (err.type === 'peer-unavailable') toast.error('Người nhận hiện không trực tuyến hoặc lỗi kết nối.');
-                else if (err.type === 'unavailable-id') console.warn('[Peer] ID này đang được sử dụng.');
+                if (err.type === 'unavailable-id') {
+                    // Nếu vẫn xui xẻo bị trùng, thử lại với ID khác sau 2s
+                    setTimeout(() => initPeer(), 2000);
+                }
             });
+
             peer.on('disconnected', () => {
-                console.warn('[Peer] Đã mất kết nối tới máy chủ, đang thử kết nối lại...');
+                setIsConnected(false);
                 peer.reconnect();
             });
         };
+
+        const broadcastPeerId = async () => {
+            if (!myPeerIdRef.current) return;
+            try {
+                await fetch('/api/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        receiverId: otherUserId, 
+                        content: myPeerIdRef.current, 
+                        isCallSignal: true,
+                        isPeerDiscovery: true 
+                    })
+                });
+            } catch (e) {}
+        };
+
         initPeer();
-        return () => { if (peerRef.current) peerRef.current.destroy(); };
+        // Định kỳ nhắc lại ID cho bên kia (phòng trường hợp họ mới F5)
+        const interval = setInterval(() => broadcastPeerId(), 30000);
+
+        return () => { 
+            clearInterval(interval);
+            if (peerRef.current) {
+                peerRef.current.destroy();
+                setIsConnected(false);
+            }
+        };
     }, [myUser?.user_id]);
 
     const sendTranscriptSignal = async (text: string, isJoining = false) => {
@@ -297,7 +384,6 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
             tempTranscriptRef.current = ''; 
             console.log('[Call] Đang yêu cầu quyền Media (Video + Audio)...');
             
-            // Theo yêu cầu của người dùng, cuộc gọi bắt buộc phải có Micrô
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             
             console.log('[Call] Đã nhận được stream Media');
@@ -305,7 +391,22 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
             setLocalStream(stream); 
             setIsCalling(true);
             setShowCallOverlay(true); 
-            const call = peerRef.current?.call(`psycho-app-user-${otherUserId}`, stream);
+
+            // Gửi tín hiệu gọi qua Pusher trước để báo thức máy bên kia
+            await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    receiverId: otherUserId, 
+                    content: '__INCOMING_CALL__', 
+                    isCallSignal: true,
+                    sender_peer_id: myPeerIdRef.current // Gửi ID thực tế đang dùng
+                })
+            });
+
+            // Ưu tiên gọi vào otherPeerId đã discovery được, nếu chưa có thì dùng ID mặc định
+            const targetId = otherPeerId || `psycho-user-${otherUserId}`;
+            const call = peerRef.current?.call(targetId, stream);
             if (call) {
                 console.log('[Call] Đã gửi yêu cầu gọi tới:', otherUserId);
                 setupCall(call);
@@ -333,20 +434,43 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
             tempTranscriptRef.current = '';
             console.log('[Call] Đang trả lời cuộc gọi, yêu cầu quyền Media (Video + Audio)...');
             
-            // Bắt buộc cả hai để đảm bảo chất lượng
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
             localStreamRef.current = stream; 
             setLocalStream(stream); 
             setIsCalling(true);
             setShowCallOverlay(true);
-            callIncoming.answer(stream); 
-            setupCall(callIncoming); 
+
+            // Nếu tín hiệu đến từ PeerJS thật
+            if (callIncoming && typeof callIncoming.answer === 'function') {
+                callIncoming.answer(stream); 
+                setupCall(callIncoming); 
+            } else {
+                // Nếu nhận tín hiệu từ Pusher trước nhưng PeerJS chưa tới, ta đánh dấu là "đang muốn nghe"
+                // PeerJS listener 'call' sẽ tự động check và trả lời nếu thấy ta đang có stream sẵn
+                console.log('[Call] Đang đợi luồng PeerJS để trả lời tự động...');
+                isWaitingForPeerToAnswerRef.current = true;
+            }
             setCallIncoming(null);
         } catch (err: any) {
             console.error('[Call] Lỗi khi nhận cuộc gọi:', err);
             toast.error('Máy tính bạn thiếu cấu hình phần cứng (Micrô) và không thể bắt đầu cuộc gọi.');
         }
+    };
+
+    const rejectCall = async () => {
+        setCallIncoming(null);
+        try {
+            await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    receiverId: otherUserId, 
+                    content: '__CALL_REJECTED__', 
+                    isCallSignal: true 
+                })
+            });
+        } catch (e) {}
     };
 
     const setupCall = (call: any) => {
@@ -421,15 +545,20 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
         setIsVideoOff(false);
         setIsTranscribing(false);
 
-        // Luôn bật chế độ biên dịch để người dùng xem kết quả
-        setIsProcessing(true);
-        setTimeout(() => {
-            if (tempTranscriptRef.current && tempTranscriptRef.current.trim()) {
-                setTranscript(tempTranscriptRef.current);
-                toast.success('Đã biên dịch xong cuộc trò chuyện!');
-            }
-            setIsProcessing(false);
-        }, 2500);
+        // Chỉ Bác sĩ mới cần xem quá trình biên dịch và kết quả cuối cùng
+        if (myUserRef.current?.role === 'expert') {
+            setIsProcessing(true);
+            setTimeout(() => {
+                if (tempTranscriptRef.current && tempTranscriptRef.current.trim()) {
+                    setTranscript(tempTranscriptRef.current);
+                    toast.success('Đã biên dịch xong cuộc trò chuyện!');
+                }
+                setIsProcessing(false);
+            }, 2500);
+        } else {
+            // Đối với Bệnh nhân: Thoát hẳn màn hình cuộc gọi ngay lập tức
+            setShowCallOverlay(false);
+        }
     };
 
     const downloadTranscript = () => {

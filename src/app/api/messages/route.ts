@@ -16,16 +16,30 @@ export async function POST(request: Request) {
         const decoded: any = jwt.verify(token.value, JWT_SECRET);
         const myUserId = decoded.userId;
 
-        const { receiverId, content, isCallSignal, isTranscriptPart } = await request.json();
+        const { receiverId, content, isCallSignal, isTranscriptPart, isPeerDiscovery, sender_peer_id } = await request.json();
 
         if (!receiverId || !content) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
         const channelName = `chat-${[myUserId, parseInt(receiverId)].sort((a: number, b: number) => a - b).join('-')}`;
         
         // Handle specialized call signals
-        if (isCallSignal && content === '__CALL_ENDED__') {
-            await pusherServer.trigger(channelName, 'end-call', { sender_id: myUserId });
-            return NextResponse.json({ success: true, signal: 'end-call' });
+        if (isCallSignal) {
+            if (isPeerDiscovery) {
+                await pusherServer.trigger(channelName, 'peer-discovery', { sender_id: myUserId, peer_id: content });
+                return NextResponse.json({ success: true, signal: 'peer-discovered' });
+            }
+            if (content === '__CALL_ENDED__') {
+                await pusherServer.trigger(channelName, 'end-call', { sender_id: myUserId });
+                return NextResponse.json({ success: true, signal: 'end-call' });
+            }
+            if (content === '__INCOMING_CALL__') {
+                await pusherServer.trigger(channelName, 'incoming-call', { sender_id: myUserId, sender_peer_id });
+                return NextResponse.json({ success: true, signal: 'incoming-call-sent' });
+            }
+            if (content === '__CALL_REJECTED__') {
+                await pusherServer.trigger(channelName, 'call-rejected', { sender_id: myUserId });
+                return NextResponse.json({ success: true, signal: 'call-rejected-sent' });
+            }
         }
 
         // Handle real-time transcription signals
