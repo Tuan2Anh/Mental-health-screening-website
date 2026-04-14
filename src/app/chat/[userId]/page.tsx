@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send, User as UserIcon, ArrowLeft, Video, VideoOff, PhoneOff, Mic, MicOff, FileText, Download, RotateCcw } from 'lucide-react';
+import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
+import { saveAs } from 'file-saver';
 import Link from 'next/link';
 import type Peer from 'peerjs';
 import toast from 'react-hot-toast';
@@ -270,7 +272,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
                         const now = Date.now();
                         const timeDiff = now - lastCommitTimeRef.current;
                         const role = myUserRef.current?.role || 'user';
-                        const prefix = role === 'expert' ? '(BS): ' : '(BN): ';
+                        const prefix = role === 'expert' ? '(BS): ' : `(${myUserRef.current?.full_name || 'BN'}): `;
                         
                         // Nếu cùng 1 người nói và cách nhau dưới 3s thì gộp vào
                         if (role === lastCommitRoleRef.current && timeDiff < 3000) {
@@ -303,7 +305,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
                     const now = Date.now();
                     const timeDiff = now - lastCommitTimeRef.current;
                     const role = myUserRef.current?.role || 'user';
-                    const prefix = role === 'expert' ? '(BS): ' : '(BN): ';
+                    const prefix = role === 'expert' ? '(BS): ' : `(${myUserRef.current?.full_name || 'BN'}): `;
 
                     if (role === lastCommitRoleRef.current && timeDiff < 3000) {
                         tempTranscriptRef.current = tempTranscriptRef.current.trimEnd() + ' ' + lastInterimRef.current.trim() + '\n';
@@ -567,17 +569,41 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
         }
     };
 
-    const downloadTranscript = () => {
+    const downloadTranscript = async () => {
         if (!transcript) return;
-        const blob = new Blob([transcript], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Bien_ban_tu_van_${otherUser?.full_name || 'BS'}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+
+        // Split transcript into lines for better formatting
+        const lines = transcript.split('\n');
+
+        const doc = new Document({
+            sections: [{
+                properties: {},
+                children: [
+                    new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                            new TextRun({
+                                text: "BIÊN BẢN TƯ VẤN TÂM LÝ",
+                                bold: true,
+                                size: 32,
+                                color: "6366f1"
+                            }),
+                        ],
+                    }),
+                    new Paragraph({
+                        children: [new TextRun({ text: `Ngày thực hiện: ${new Date().toLocaleString('vi-VN')}`, size: 24 })],
+                        spacing: { before: 200, after: 400 }
+                    }),
+                    ...lines.map(line => new Paragraph({
+                        children: [new TextRun({ text: line, size: 24 })],
+                        spacing: { after: 120 }
+                    }))
+                ],
+            }],
+        });
+
+        const blob = await Packer.toBlob(doc);
+        saveAs(blob, `Bien_ban_tu_van_${otherUser?.full_name || 'BS'}.docx`);
     };
 
     useEffect(() => { if (messagesContainerRef.current) messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight; }, [messages]);

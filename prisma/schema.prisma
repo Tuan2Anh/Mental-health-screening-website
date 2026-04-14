@@ -26,6 +26,22 @@ model User {
   sentMessages         Message[]     @relation("SentMessages")
   receivedMessages     Message[]     @relation("ReceivedMessages")
   notifications        Notification[]
+  patientProfiles      PatientProfile[] @relation("PatientRecords")
+  managedPatients      PatientProfile[] @relation("DoctorManagedPatients")
+}
+
+model PatientProfile {
+  id            Int      @id @default(autoincrement())
+  patient_id    Int
+  doctor_id     Int
+  status        String   @default("Normal") // Depression, Anxiety, Normal, Monitoring
+  notes         String?  @db.Text
+  updated_at    DateTime @updatedAt
+  
+  patient       User     @relation("PatientRecords", fields: [patient_id], references: [user_id])
+  doctor        User     @relation("DoctorManagedPatients", fields: [doctor_id], references: [user_id])
+
+  @@unique([patient_id, doctor_id])
 }
 
 model Notification {

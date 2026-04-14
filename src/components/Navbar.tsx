@@ -99,6 +99,12 @@ export default function Navbar() {
                         <Calendar size={18} />
                         Đặt Lịch
                     </Link>
+                    {user?.role === 'expert' && (
+                        <Link href="/doctor/patients" className={styles.link}>
+                            <User size={18} />
+                            Bệnh Nhân
+                        </Link>
+                    )}
                     <Link href="/about" className={styles.link}>
                         Tìm Hiểu Thêm
                     </Link>
