@@ -109,7 +109,7 @@ export default function ProfilePage() {
                             )}
                         </div>
                         <h2 style={{ marginBottom: '0.25rem' }}>{user.full_name}</h2>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>{user.email}</p>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', wordBreak: 'break-all' }}>{user.email}</p>
                         
                         {user.role === 'expert' && (
                             <div style={{ 
@@ -128,7 +128,7 @@ export default function ProfilePage() {
 
                         <div style={{ marginTop: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
-                                <Mail size={18} /> <span>{user.email}</span>
+                                <Mail size={18} style={{ flexShrink: 0 }} /> <span style={{ wordBreak: 'break-all' }}>{user.email}</span>
                             </div>
                             {user.role !== 'user' && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
@@ -314,11 +314,11 @@ export default function ProfilePage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div style={{ padding: '2rem', background: '#f8fafc', borderRadius: '1rem', border: '1px solid #f1f5f9' }}>
                                         <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Họ và tên</span>
-                                        <strong style={{ fontSize: '1.25rem', color: '#1e293b' }}>{user.full_name}</strong>
+                                        <strong style={{ fontSize: '1.25rem', color: '#1e293b', display: 'block', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{user.full_name}</strong>
                                     </div>
                                     <div style={{ padding: '2rem', background: '#f8fafc', borderRadius: '1rem', border: '1px solid #f1f5f9' }}>
                                         <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email liên hệ</span>
-                                        <strong style={{ fontSize: '1.25rem', color: '#1e293b' }}>{user.email}</strong>
+                                        <strong style={{ fontSize: '1.25rem', color: '#1e293b', display: 'block', wordBreak: 'break-all', overflowWrap: 'anywhere' }}>{user.email}</strong>
                                     </div>
                                     <div style={{ padding: '2rem', background: '#f8fafc', borderRadius: '1rem', border: '1px solid #f1f5f9' }}>
                                         <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Giới tính</span>
@@ -330,12 +330,12 @@ export default function ProfilePage() {
                                     </div>
                                     <div className="md:col-span-2" style={{ padding: '2rem', background: '#f8fafc', borderRadius: '1rem', border: '1px solid #f1f5f9' }}>
                                         <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Địa chỉ</span>
-                                        <strong style={{ fontSize: '1.25rem', color: '#1e293b' }}>{user.address || 'Chưa cập nhật'}</strong>
+                                        <strong style={{ fontSize: '1.25rem', color: '#1e293b', display: 'block', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{user.address || 'Chưa cập nhật'}</strong>
                                     </div>
                                     {user.role === 'expert' && (
                                         <div className="md:col-span-2" style={{ padding: '2rem', background: 'rgba(99, 102, 241, 0.03)', borderRadius: '1rem', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
                                             <span style={{ fontSize: '0.85rem', color: '#6366f1', fontWeight: 600, display: 'block', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Chuyên khoa</span>
-                                            <strong style={{ fontSize: '1.25rem', color: '#1e293b' }}>{user.specialty || 'Chuyên Gia Tâm Lý'}</strong>
+                                            <strong style={{ fontSize: '1.25rem', color: '#1e293b', display: 'block', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{user.specialty || 'Chuyên Gia Tâm Lý'}</strong>
                                         </div>
                                     )}
                                 </div>

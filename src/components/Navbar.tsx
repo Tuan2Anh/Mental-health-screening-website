@@ -111,7 +111,7 @@ export default function Navbar() {
 
                     <div className={styles.auth}>
                         {user ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }} ref={dropdownRef}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }} ref={dropdownRef}>
                                 {/* Notifications */}
                                 <div style={{ position: 'relative' }}>
                                     <button 
@@ -176,7 +176,7 @@ export default function Navbar() {
                                     )}
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <Link href="/profile" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                                     <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: '#f8fafc', border: '1.5px solid var(--border)', transition: 'all 0.2s ease' }}>
                                         {user.avatar ? (
@@ -188,7 +188,7 @@ export default function Navbar() {
                                         )}
                                     </div>
                                 </Link>
-                                    <span style={{ color: 'var(--text-muted)' }}>Chào, <Link href="/profile" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600 }}>{user.full_name || user.name}</Link></span>
+                                    <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>Chào, <Link href="/profile" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600 }}>{user.full_name || user.name}</Link></span>
                                 </div>
                                 <button
                                     onClick={handleLogout}
