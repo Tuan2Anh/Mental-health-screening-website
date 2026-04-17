@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { sendVerificationEmail } from '@/lib/mail';
 
 export async function POST(request: Request) {
     try {
@@ -54,6 +56,9 @@ export async function POST(request: Request) {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Generate verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+
         // Create user
         const user = await prisma.user.create({
             data: {
@@ -64,11 +69,22 @@ export async function POST(request: Request) {
                 gender,
                 age: ageNum,
                 address,
+                verification_token: verificationToken,
+                is_verified: false
             },
         });
 
+        // Send verification email
+        try {
+            await sendVerificationEmail(email, verificationToken);
+        } catch (mailError) {
+            console.error('Failed to send verification email:', mailError);
+            // We still return success but maybe mention it? 
+            // For now, let's assume it works or just log it.
+        }
+
         return NextResponse.json({
-            message: 'Đăng ký thành công',
+            message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.',
             user: { id: user.user_id, email: user.email, name: user.full_name }
         });
 

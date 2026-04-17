@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
+import { sendAppointmentNotificationEmail } from '@/lib/mail';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'psycho-secret-key-123';
 
@@ -53,6 +54,12 @@ export async function POST(request: Request) {
             }, { status: 400 });
         }
 
+        // Fetch user and expert info for email
+        const user = await prisma.user.findUnique({ where: { user_id: userId } });
+        const expert = await prisma.user.findUnique({ where: { user_id: parseInt(expertId) } });
+
+        if (!expert) return NextResponse.json({ error: 'Expert not found' }, { status: 404 });
+
         const appointment = await prisma.appointment.create({
             data: {
                 user_id: userId,
@@ -71,6 +78,17 @@ export async function POST(request: Request) {
                 link: '/appointments'
             }
         });
+
+        // Send Email Notification
+        try {
+            await sendAppointmentNotificationEmail(expert.email, {
+                time: time,
+                type: type,
+                userName: user?.full_name || 'Bệnh nhân'
+            });
+        } catch (mailError) {
+            console.error('Failed to send appointment email:', mailError);
+        }
 
         return NextResponse.json(appointment);
     } catch (error) {

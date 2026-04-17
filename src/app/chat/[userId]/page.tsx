@@ -575,6 +575,10 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
         // Split transcript into lines for better formatting
         const lines = transcript.split('\n');
 
+        const now = new Date();
+        const dateTimeStr = now.toLocaleString('vi-VN');
+        const fileDateStr = now.toLocaleDateString('vi-VN').replace(/\//g, '-');
+
         const doc = new Document({
             sections: [{
                 properties: {},
@@ -591,7 +595,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
                         ],
                     }),
                     new Paragraph({
-                        children: [new TextRun({ text: `Ngày thực hiện: ${new Date().toLocaleString('vi-VN')}`, size: 24 })],
+                        children: [new TextRun({ text: `Ngày thực hiện: ${dateTimeStr}`, size: 24, italic: true })],
                         spacing: { before: 200, after: 400 }
                     }),
                     ...lines.map(line => new Paragraph({
@@ -603,7 +607,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
         });
 
         const blob = await Packer.toBlob(doc);
-        saveAs(blob, `Bien_ban_tu_van_${otherUser?.full_name || 'BS'}.docx`);
+        saveAs(blob, `Bien_ban_tu_van_${otherUser?.full_name || 'BS'}_${fileDateStr}.docx`);
     };
 
     useEffect(() => { if (messagesContainerRef.current) messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight; }, [messages]);

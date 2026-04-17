@@ -48,6 +48,14 @@ export async function POST(request: Request) {
             );
         }
 
+        // Check verification
+        if (!user.is_verified) {
+            return NextResponse.json(
+                { error: 'Tài khoản chưa được xác thực. Vui lòng kiểm tra email của bạn.' },
+                { status: 403 }
+            );
+        }
+
         // Generate Token
         const token = jwt.sign(
             { userId: user.user_id, email: user.email, role: user.role, name: user.full_name },

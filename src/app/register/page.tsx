@@ -111,7 +111,7 @@ export default function RegisterPage() {
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Đăng ký thất bại');
-            router.push('/login?registered=true');
+            router.push('/register/success');
         } catch (err: any) {
             setError(err.message);
         } finally {

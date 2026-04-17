@@ -19,6 +19,8 @@ model User {
   age           Int?
   address       String?       @db.Text
   created_at    DateTime      @default(now())
+  is_verified   Boolean       @default(false)
+  verification_token String?
   
   testResults   TestResult[]
   appointmentsAsUser   Appointment[] @relation("UserAppointments")

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
+import { sendAppointmentConfirmationEmail } from '@/lib/mail';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'psycho-secret-key-123';
 
@@ -34,7 +35,11 @@ export async function PUT(request: Request, { params }: { params: { appointmentI
 
         const updatedAppointment = await prisma.appointment.update({
             where: { appointment_id: appointmentIdInt },
-            data: { status: status }
+            data: { status: status },
+            include: {
+                user: true,
+                expert: true
+            }
         });
 
         const statusText = status === 'confirmed' ? 'đã được xác nhận' : status === 'cancelled' ? 'bị từ chối' : 'đã hoàn thành';
@@ -46,6 +51,20 @@ export async function PUT(request: Request, { params }: { params: { appointmentI
                 link: '/appointments'
             }
         });
+
+        // Send Email Notification if confirmed
+        if (status === 'confirmed') {
+            try {
+                await sendAppointmentConfirmationEmail(updatedAppointment.user.email, {
+                    time: updatedAppointment.appointment_time,
+                    type: updatedAppointment.type,
+                    userName: updatedAppointment.user.full_name,
+                    expertName: updatedAppointment.expert.full_name
+                });
+            } catch (mailError) {
+                console.error('Failed to send confirmation email:', mailError);
+            }
+        }
 
         return NextResponse.json(updatedAppointment);
     } catch (error) {
