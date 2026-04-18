@@ -595,7 +595,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
                         ],
                     }),
                     new Paragraph({
-                        children: [new TextRun({ text: `Ngày thực hiện: ${dateTimeStr}`, size: 24, italic: true })],
+                        children: [new TextRun({ text: `Ngày thực hiện: ${dateTimeStr}`, size: 24, italics: true })],
                         spacing: { before: 200, after: 400 }
                     }),
                     ...lines.map(line => new Paragraph({
