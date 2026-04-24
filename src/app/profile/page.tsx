@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 export default function ProfilePage() {
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
+    const [testResults, setTestResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     
@@ -21,7 +22,20 @@ export default function ProfilePage() {
 
     useEffect(() => {
         fetchUser();
+        fetchTestResults();
     }, []);
+
+    const fetchTestResults = async () => {
+        try {
+            const res = await fetch('/api/submit-test');
+            const data = await res.json();
+            if (data.testResults) {
+                setTestResults(data.testResults);
+            }
+        } catch (error) {
+            console.error('Error fetching test results:', error);
+        }
+    };
 
     const fetchUser = async () => {
         try {
@@ -355,6 +369,55 @@ export default function ProfilePage() {
                                             <div style={{ fontSize: '0.9rem', color: '#94a3b8', fontWeight: 500 }}>Lịch Hẹn</div>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* Test Results History Section */}
+                                <div className="mt-8">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div style={{ padding: '0.5rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.75rem', color: '#6366f1' }}>
+                                            <ClipboardList size={20} />
+                                        </div>
+                                        <h4 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Lịch Sử Trắc Nghiệm Tâm Lý</h4>
+                                    </div>
+
+                                    {testResults.length > 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {testResults.map((result) => (
+                                                <div key={result.result_id} className="card" style={{ padding: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #f1f5f9', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+                                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1' }}>
+                                                            <ClipboardList size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, fontSize: '1rem', color: '#1e293b' }}>{result.scale?.scale_name || 'Thang đo'}</div>
+                                                            <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                                                <Calendar size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                                                                {new Date(result.created_at).toLocaleDateString('vi-VN')} {new Date(result.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <div style={{ 
+                                                            fontSize: '0.85rem', 
+                                                            fontWeight: 600, 
+                                                            padding: '0.25rem 0.75rem', 
+                                                            borderRadius: '2rem', 
+                                                            background: result.risk_level?.toLowerCase().includes('bình thường') ? '#dcfce7' : '#fef2f2',
+                                                            color: result.risk_level?.toLowerCase().includes('bình thường') ? '#166534' : '#991b1b',
+                                                            display: 'inline-block'
+                                                        }}>
+                                                            {result.risk_level}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>Tổng điểm: {result.total_score}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '3rem', textAlign: 'center', background: '#f8fafc', borderRadius: '1.5rem', border: '1px dashed #cbd5e1' }}>
+                                            <p style={{ color: '#94a3b8' }}>Bạn chưa có bài kiểm tra nào.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

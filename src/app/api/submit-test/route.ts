@@ -228,3 +228,30 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Failed to submit test' }, { status: 500 });
     }
 }
+
+export async function GET() {
+    try {
+        const cookieStore = cookies();
+        const token = cookieStore.get('auth_token');
+
+        if (!token) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const decoded: any = jwt.verify(token.value, JWT_SECRET);
+        const userId = decoded.userId;
+
+        const testResults = await prisma.testResult.findMany({
+            where: { user_id: Number(userId) },
+            include: {
+                scale: true
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        return NextResponse.json({ testResults });
+    } catch (error) {
+        console.error(error);
+        return NextResponse.json({ error: 'Failed to fetch test results' }, { status: 500 });
+    }
+}
