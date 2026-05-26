@@ -24,10 +24,34 @@ export async function POST(request: Request) {
             );
         }
 
-        // Password length validation
-        if (password.length < 6) {
+        // Password validation
+        if (password.length < 8) {
             return NextResponse.json(
-                { error: 'Mật khẩu phải có ít nhất 6 ký tự' },
+                { error: 'Mật khẩu phải có ít nhất 8 ký tự' },
+                { status: 400 }
+            );
+        }
+        if (!/[A-Z]/.test(password)) {
+            return NextResponse.json(
+                { error: 'Mật khẩu phải chứa ít nhất 1 chữ cái viết hoa' },
+                { status: 400 }
+            );
+        }
+        if (!/[a-z]/.test(password)) {
+            return NextResponse.json(
+                { error: 'Mật khẩu phải chứa ít nhất 1 chữ cái viết thường' },
+                { status: 400 }
+            );
+        }
+        if (!/[0-9]/.test(password)) {
+            return NextResponse.json(
+                { error: 'Mật khẩu phải chứa ít nhất 1 chữ số' },
+                { status: 400 }
+            );
+        }
+        if (!/[^A-Za-z0-9]/.test(password)) {
+            return NextResponse.json(
+                { error: 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt' },
                 { status: 400 }
             );
         }

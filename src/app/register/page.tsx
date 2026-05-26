@@ -53,9 +53,24 @@ export default function RegisterPage() {
         if (!formData.password) {
             errors.password = 'Vui lòng nhập mật khẩu';
             isValid = false;
-        } else if (formData.password.length < 6) {
-            errors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
-            isValid = false;
+        } else {
+            const password = formData.password;
+            if (password.length < 8) {
+                errors.password = 'Mật khẩu phải có ít nhất 8 ký tự';
+                isValid = false;
+            } else if (!/[A-Z]/.test(password)) {
+                errors.password = 'Mật khẩu phải chứa ít nhất 1 chữ cái viết hoa';
+                isValid = false;
+            } else if (!/[a-z]/.test(password)) {
+                errors.password = 'Mật khẩu phải chứa ít nhất 1 chữ cái viết thường';
+                isValid = false;
+            } else if (!/[0-9]/.test(password)) {
+                errors.password = 'Mật khẩu phải chứa ít nhất 1 chữ số';
+                isValid = false;
+            } else if (!/[^A-Za-z0-9]/.test(password)) {
+                errors.password = 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt';
+                isValid = false;
+            }
         }
 
         if (formData.password !== formData.confirmPassword) {
