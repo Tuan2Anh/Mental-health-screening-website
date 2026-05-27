@@ -7,32 +7,72 @@ const PROJECT_KNOWLEDGE = [
     {
         title: 'Các bài test tâm lý',
         keywords: ['bài test', 'kiểm tra', 'trắc nghiệm', 'danh sách test', 'test tâm lý'],
-        answer: 'PsychoHealth cung cấp 6 bộ trắc nghiệm chuẩn quốc tế: \n1. DASS-21 (Trầm cảm, lo âu, stress)\n2. PHQ-9 (Chẩn đoán Trầm cảm)\n3. GAD-7 (Rối loạn lo âu lan tỏa)\n4. ISI (Mức độ mất ngủ)\n5. ASRS (Tăng động giảm chú ý ADHD)\n6. PSS-10 (Căng thẳng mãn tính). \nBạn hãy vào mục "Sàng lọc tâm lý" để thực hiện ngay.'
+        answer: 'PsychoHealth cung cấp 8 bộ trắc nghiệm chuẩn quốc tế:\n1. DASS-21 (Trầm cảm, lo âu, stress)\n2. PHQ-9 (Đánh giá trầm cảm)\n3. GAD-7 (Đánh giá lo âu lan tỏa)\n4. ISI (Đánh giá mức độ mất ngủ)\n5. ASRS (Tự đánh giá ADHD ở người lớn)\n6. PSS-10 (Đánh giá căng thẳng cảm nhận)\n7. SPIN (Đánh giá lo âu xã hội)\n8. EPDS (Sàng lọc trầm cảm sau sinh).\n\nBạn hãy vào mục "Sàng lọc tâm lý" để thực hiện ngay.',
+        suggest: true
     },
     {
         title: 'Bài test DASS-21',
-        keywords: ['dass-21', 'dass21', 'trầm cảm', 'lo âu', 'stress'],
-        answer: 'DASS-21 đánh giá 3 khía cạnh: Trầm cảm, Lo âu và Stress. \nLời khuyên: Nếu bạn cảm thấy căng thẳng kéo dài, hãy thử thực hiện tại mục "Sàng lọc tâm lý" để có kết quả tổng quan nhất.'
+        keywords: ['dass-21', 'dass21', 'trầm cảm', 'lo âu', 'stress', 'căng thẳng'],
+        answer: 'DASS-21 đánh giá 3 khía cạnh: Trầm cảm, Lo âu và Stress qua 21 câu hỏi.\nMức độ điểm (sau khi nhân hệ số 2):\n- Trầm cảm: Bình thường (0-9), Nhẹ (10-13), Vừa (14-20), Nặng (21-27), Rất nặng (>=28).\n- Lo âu: Bình thường (0-7), Nhẹ (8-9), Vừa (10-14), Nặng (15-19), Rất nặng (>=20).\n- Stress: Bình thường (0-14), Nhẹ (15-18), Vừa (19-25), Nặng (26-33), Rất nặng (>=34).\n\nLời khuyên: Nếu bạn cảm thấy căng thẳng kéo dài, hãy thử thực hiện tại mục "Sàng lọc tâm lý" để có kết quả tổng quan nhất.'
+    },
+    {
+        title: 'Bài test PHQ-9',
+        keywords: ['phq-9', 'phq9', 'trầm cảm', 'sàng lọc trầm cảm'],
+        answer: 'PHQ-9 là bộ trắc nghiệm gồm 9 câu hỏi giúp đánh giá mức độ trầm cảm.\nMức độ điểm (Tối đa 27 điểm):\n- 0 - 4: Trầm cảm tối thiểu\n- 5 - 9: Trầm cảm nhẹ\n- 10 - 14: Trầm cảm trung bình\n- 15 - 19: Trầm cảm trung bình nặng\n- >=20: Trầm cảm nặng.'
+    },
+    {
+        title: 'Bài test GAD-7',
+        keywords: ['gad-7', 'gad7', 'lo âu', 'lo âu lan tỏa', 'rối loạn lo âu'],
+        answer: 'GAD-7 gồm 7 câu hỏi đánh giá mức độ lo âu lan tỏa.\nMức độ điểm (Tối đa 21 điểm):\n- 0 - 4: Lo âu tối thiểu\n- 5 - 9: Lo âu nhẹ\n- 10 - 14: Lo âu trung bình\n- >=15: Lo âu nặng.'
+    },
+    {
+        title: 'Bài test ISI',
+        keywords: ['isi', 'mất ngủ', 'khó ngủ', 'giấc ngủ', 'chất lượng giấc ngủ'],
+        answer: 'ISI (Insomnia Severity Index) gồm 7 câu hỏi đánh giá mức độ nghiêm trọng của chứng mất ngủ trong 2 tuần qua.\nMức độ điểm (Tối đa 28 điểm):\n- 0 - 7: Không mất ngủ lâm sàng\n- 8 - 14: Mất ngủ nhẹ (dưới lâm sàng)\n- 15 - 21: Mất ngủ trung bình (lâm sàng)\n- 22 - 28: Mất ngủ nặng (lâm sàng).'
+    },
+    {
+        title: 'Bài test ASRS',
+        keywords: ['asrs', 'adhd', 'tăng động', 'giảm chú ý', 'kém tập trung'],
+        answer: 'ASRS gồm 6 câu hỏi sàng lọc nhanh chứng tăng động giảm chú ý (ADHD) ở người lớn.\nMức độ điểm (Tối đa 24 điểm):\n- <=13: Ít dấu hiệu ADHD\n- >=14: Có nguy cơ cao mắc ADHD.'
+    },
+    {
+        title: 'Bài test PSS-10',
+        keywords: ['pss-10', 'pss10', 'stress', 'căng thẳng cảm nhận', 'áp lực'],
+        answer: 'PSS-10 gồm 10 câu hỏi đánh giá mức độ căng thẳng cảm nhận của bạn trong 1 tháng qua.\nMức độ điểm (Tối đa 40 điểm):\n- 0 - 13: Căng thẳng thấp\n- 14 - 26: Căng thẳng trung bình\n- 27 - 40: Căng thẳng cao.'
+    },
+    {
+        title: 'Bài test SPIN',
+        keywords: ['spin', 'lo âu xã hội', 'ngại giao tiếp', 'sợ đám đông', 'tránh né'],
+        answer: 'SPIN (Social Phobia Inventory) gồm các câu hỏi tự đánh giá nhằm nhận biết mức độ lo âu xã hội, sự sợ hãi hoặc tránh né các tình huống giao tiếp thường ngày.'
+    },
+    {
+        title: 'Bài test EPDS',
+        keywords: ['epds', 'trầm cảm sau sinh', 'mẹ bỉm', 'sau sinh', 'mang thai'],
+        answer: 'EPDS (Edinburgh Postnatal Depression Scale) gồm 10 câu hỏi tự khai báo giúp phát hiện sớm nguy cơ trầm cảm và lo âu ở phụ nữ trong giai đoạn mang thai và sau sinh.'
     },
     {
         title: 'Đặt lịch hẹn Bác sĩ',
         keywords: ['đặt lịch', 'hẹn', 'bác sĩ', 'tư vấn'],
-        answer: 'Để đặt lịch: Chọn mục "Lịch hẹn" -> "Đặt lịch mới" hoặc vào trang cá nhân của Bác sĩ. Bạn có thể chọn tư vấn Online hoặc Offline.'
+        answer: 'Để đặt lịch: Chọn mục "Lịch hẹn" -> "Đặt lịch mới" hoặc vào trang cá nhân của Bác sĩ. Bạn có thể chọn tư vấn Online hoặc Offline.',
+        suggest: true
     },
     {
         title: 'Lợi ích của Video Call',
         keywords: ['video call', 'facetime', 'gọi', 'biên bản'],
-        answer: 'Cuộc gọi tại PsychoHealth tích hợp công nghệ Speech-to-Text, tự động biên soạn nội dung hội thoại thành văn bản giúp Bác sĩ và Bệnh nhân dễ dàng xem lại lộ trình tư vấn.'
+        answer: 'Cuộc gọi tại PsychoHealth tích hợp công nghệ Speech-to-Text, tự động biên soạn nội dung hội thoại thành văn bản giúp Bác sĩ và Bệnh nhân dễ dàng xem lại lộ trình tư vấn.',
+        suggest: true
     },
     {
         title: 'Bảo mật thông tin',
         keywords: ['bảo mật', 'an toàn', 'bí mật'],
-        answer: 'Tất cả dữ liệu từ bài trắc nghiệm đến nội dung cuộc gọi đều được mã hóa và bảo mật tuyệt đối, chỉ Bác sĩ điều trị và bạn mới có quyền tiếp cận.'
+        answer: 'Tất cả dữ liệu từ bài trắc nghiệm đến nội dung cuộc gọi đều được mã hóa và bảo mật tuyệt đối, chỉ Bác sĩ điều trị và bạn mới có quyền tiếp cận.',
+        suggest: true
     },
     {
         title: 'Về dự án PsychoHealth',
         keywords: ['dự án', 'hệ thống', 'thông tin dự án'],
-        answer: 'PsychoHealth là nền tảng số hóa hỗ trợ chăm sóc sức khỏe tâm trí. Chúng tôi kết hợp các bài trắc nghiệm tâm lý khoa học với dịch vụ tư vấn chuyên nghiệp từ các bác sĩ đầu ngành.'
+        answer: 'PsychoHealth là nền tảng số hóa hỗ trợ chăm sóc sức khỏe tâm trí. Chúng tôi kết hợp các bài trắc nghiệm tâm lý khoa học với dịch vụ tư vấn chuyên nghiệp từ các bác sĩ đầu ngành.',
+        suggest: true
     }
 ];
 
@@ -159,7 +199,7 @@ export default function AIChatbox() {
                                     <HelpCircle size={14} /> CHỦ ĐỀ GỢI Ý
                                 </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
-                                    {PROJECT_KNOWLEDGE.map((item, i) => (
+                                    {PROJECT_KNOWLEDGE.filter(item => item.suggest).map((item, i) => (
                                         <button 
                                             key={i}
                                             onClick={() => handleTopicClick(item)}
